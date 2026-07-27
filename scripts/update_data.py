@@ -521,7 +521,8 @@ def main() -> None:
         ])
     except subprocess.CalledProcessError as exc:
         print(
-            "WARNING: Surface speed update failed. Using the existing tournament_surface_speed.csv."
+            "WARNING: Surface speed update failed. "
+            "Using the existing tournament_surface_speed.csv."
         )
         print(exc)
 
@@ -534,5 +535,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
