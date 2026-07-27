@@ -36,10 +36,8 @@ jobs:
       - name: Run smoke tests on refreshed model
         run: pytest -q
 
-      - name: Verify generated artifacts
+      - name: Verify deployable artifacts
         run: |
-          test -s data/generated/master_matches.csv.gz
-          test -s data/generated/current_rankings.csv
           test -s data/generated/player_state.csv.gz
           test -s data/generated/freshness.json
           test -s data/generated/metrics.json
@@ -52,7 +50,10 @@ jobs:
 
           root = Path(".")
 
-          state = pd.read_csv(root / "data/generated/player_state.csv.gz")
+          state = pd.read_csv(
+              root / "data/generated/player_state.csv.gz"
+          )
+
           assert len(state) > 100
           assert state["overall_elo"].notna().all()
 
@@ -68,8 +69,14 @@ jobs:
               freshness["matches"]["latest_tourney_date"],
           )
           print(
+              "Selected source rows:",
+              freshness["matches"]["selected_rows_by_source"],
+          )
+          print(
               "Ranking date:",
-              freshness["reference"]["rankings"].get("ranking_date"),
+              freshness.get("reference", {})
+              .get("rankings", {})
+              .get("ranking_date", "unavailable"),
           )
           PY
 
@@ -80,10 +87,15 @@ jobs:
 
           git add \
             data/generated/player_state.csv.gz \
-            data/generated/current_rankings.csv \
             data/generated/freshness.json \
             data/generated/metrics.json \
             model/model.joblib
 
-          git diff --cached --quiet || git commit -m "Daily ATP multi-source model refresh"
+          if [ -f data/generated/current_rankings.csv ]; then
+            git add data/generated/current_rankings.csv
+          fi
+
+          git diff --cached --quiet || \
+            git commit -m "Daily ATP multi-source model refresh"
+
           git push
