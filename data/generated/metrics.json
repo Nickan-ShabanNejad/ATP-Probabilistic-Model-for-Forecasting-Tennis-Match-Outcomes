@@ -1,0 +1,61 @@
+{
+  "training_matches": 12800,
+  "test_matches": 2737,
+  "holdout": "2025",
+  "selected_model": "hist_gradient_boosting",
+  "selection_metric": "lowest chronological holdout log loss, then Brier score",
+  "candidate_metrics": {
+    "logistic_regression": {
+      "accuracy": 0.6547314578005116,
+      "log_loss": 0.6162283393993412,
+      "brier": 0.21476859840298262,
+      "roc_auc": 0.7145876610719798
+    },
+    "hist_gradient_boosting": {
+      "accuracy": 0.6737303617099013,
+      "log_loss": 0.5703411074576006,
+      "brier": 0.1973440290445917,
+      "roc_auc": 0.7584067157603559
+    }
+  },
+  "accuracy": 0.6737303617099013,
+  "log_loss": 0.5703411074576006,
+  "brier": 0.1973440290445917,
+  "roc_auc": 0.7584067157603559,
+  "latest_data_date": "2026-01-17",
+  "features": [
+    "overall_elo_diff",
+    "surface_elo_diff",
+    "serve_diff",
+    "return_diff",
+    "log_rank_advantage",
+    "win5_diff",
+    "win10_diff",
+    "surface_win10_diff",
+    "opp_elo10_diff",
+    "recent_perf10_diff",
+    "matches7_diff",
+    "matches14_diff",
+    "rest_days_diff",
+    "elo_change10_diff",
+    "age_diff",
+    "chart_serve_diff",
+    "chart_return_diff",
+    "chart_winner_rate_diff",
+    "chart_ue_rate_diff",
+    "chart_net_win_diff",
+    "charted_matches_diff",
+    "chart_available_diff",
+    "h2h_edge",
+    "h2h_surface_edge",
+    "tournament_level",
+    "best_of",
+    "log_h2h_matches",
+    "court_speed",
+    "court_speed_missing"
+  ],
+  "charting": {
+    "available": false,
+    "reason": "overview file missing"
+  }
+}
