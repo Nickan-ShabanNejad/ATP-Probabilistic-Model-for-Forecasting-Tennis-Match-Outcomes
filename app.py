@@ -17,8 +17,23 @@ def state(): return load_state()
 @st.cache_resource
 def bundle(): return load_bundle()
 
-df=state(); model=bundle()
-metrics=model.get("metrics",{})
+df = state()
+model = bundle()
+
+# ---------- DEBUG ----------
+st.subheader("DEBUG: Rafael Jodar")
+
+debug = df.loc[
+    df["player"].eq("Rafael Jodar"),
+    ["player", "surface", "rank", "last_match"]
+]
+
+if debug.empty:
+    st.error("Rafael Jodar not found in player_state.csv.gz")
+else:
+    st.dataframe(debug, use_container_width=True)
+
+metrics = model.get("metrics", {})
 freshness_path=ROOT/"data/generated/freshness.json"
 freshness={}
 if freshness_path.exists():
