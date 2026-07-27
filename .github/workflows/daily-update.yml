@@ -1,0 +1,103 @@
+
+name: Daily ATP production refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: atp-daily-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download, validate, merge, and retrain
+        env:
+          ATP_RANKINGS_CSV_URL: ${{ secrets.ATP_RANKINGS_CSV_URL }}
+        run: python scripts/update_data.py
+
+      - name: Run smoke tests
+        run: pytest -q
+
+      - name: Verify deployable artifacts and data quality
+        run: |
+          test -s data/generated/player_state.csv.gz
+          test -s data/generated/head_to_head.csv.gz
+          test -s data/tournament_surface_speed.csv
+          test -s data/generated/current_rankings.csv
+          test -s data/generated/freshness.json
+          test -s data/generated/metrics.json
+          test -s data/generated/source_history.csv
+          test -s data/generated/model_history.csv
+          test -s model/model.joblib
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path(".")
+          state = pd.read_csv(root / "data/generated/player_state.csv.gz")
+          freshness = json.loads((root / "data/generated/freshness.json").read_text())
+          metrics = json.loads((root / "data/generated/metrics.json").read_text())
+
+          assert len(state) > 100
+          assert state["overall_elo"].notna().all()
+          assert freshness["matches"]["master_rows"] > 1000
+          assert freshness["matches"]["current_year_rows"] > 0
+          assert metrics.get("selected_model") in {"logistic_regression", "hist_gradient_boosting"}
+          assert 0.0 < metrics["accuracy"] < 0.90, (
+              "Suspicious accuracy: likely target leakage or invalid evaluation."
+          )
+          assert metrics["log_loss"] > 0.05
+          assert metrics["brier"] > 0.01
+
+          print("Player-state rows:", len(state))
+          print("Latest match:", freshness["matches"]["latest_tourney_date"])
+          print("Data age in days:", freshness["matches"]["age_days"])
+          print("Selected rows:", freshness["matches"]["selected_rows_by_source"])
+          print("Accuracy:", metrics["accuracy"])
+          print("Log loss:", metrics["log_loss"])
+          print("Brier:", metrics["brier"])
+          PY
+
+      - name: Commit refreshed model, histories, and health metadata
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            data/generated/player_state.csv.gz \
+            data/generated/head_to_head.csv.gz \
+            data/tournament_surface_speed.csv \
+            data/generated/current_rankings.csv \
+            data/generated/freshness.json \
+            data/generated/metrics.json \
+            data/generated/source_history.csv \
+            data/generated/model_history.csv \
+            model/model.joblib
+
+          git diff --cached --quiet || \
+            git commit -m "Daily ATP production refresh"
+
+          git push
