@@ -13,12 +13,12 @@ import unicodedata
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+
 from atp_model.tournament_features import load_surface_speeds, canonical_tournament
 
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.impute import SimpleImputer
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
@@ -315,7 +315,18 @@ def feature_difference(
     return differential, context
 
 
+H2H_MIN_MATCHES = 5
+H2H_PRIOR_WINS = 8.0
+H2H_RELIABILITY_MATCHES = 12.0
+
+
 def h2h_features(player_a, player_b, surface):
+    """Leakage-safe, strongly shrunk H2H features from prior matches only.
+
+    A small H2H sample is mostly noise. Records below H2H_MIN_MATCHES are
+    displayed to the user but contribute zero predictive edge to the model.
+    Larger samples use a Beta prior and an additional reliability weight.
+    """
     pair = tuple(sorted((player_a, player_b)))
     a_is_first = player_a == pair[0]
     overall = h2h_overall[pair]
@@ -325,12 +336,18 @@ def h2h_features(player_a, player_b, surface):
         wins_a = record["a"] if a_is_first else record["b"]
         wins_b = record["b"] if a_is_first else record["a"]
         total = wins_a + wins_b
-        # Beta(2,2) shrinkage prevents extreme values from one match.
-        return ((wins_a + 2) / (total + 4) - 0.5) * 2, total
+        if total < H2H_MIN_MATCHES:
+            return 0.0, total
+        posterior = (wins_a + H2H_PRIOR_WINS) / (
+            total + 2.0 * H2H_PRIOR_WINS
+        )
+        reliability = total / (total + H2H_RELIABILITY_MATCHES)
+        return ((posterior - 0.5) * 2.0) * reliability, total
 
     overall_edge, total = edge(overall)
-    surface_edge, _ = edge(surf)
-    return overall_edge, surface_edge, total
+    surface_edge, surface_total = edge(surf)
+    effective_total = total if total >= H2H_MIN_MATCHES else 0
+    return overall_edge, surface_edge, effective_total
 
 
 for _, r in matches.iterrows():
@@ -458,12 +475,47 @@ else:
     holdout_label = str(holdout_year)
 
 
+def _logit(probability):
+    probability = np.clip(np.asarray(probability, dtype=float), 1e-6, 1 - 1e-6)
+    return np.log(probability / (1.0 - probability)).reshape(-1, 1)
+
+
+def fit_chronological_calibrated(estimator, x_train, y_train):
+    """Fit the model, then Platt-calibrate it on the latest training block.
+
+    The split is chronological rather than random, which avoids calibrating on
+    information from the future relative to the base-model training period.
+    """
+    split = max(500, int(len(x_train) * 0.85))
+    split = min(split, len(x_train) - 100)
+    if split <= 0:
+        raise RuntimeError("Not enough rows for chronological calibration.")
+    estimator.fit(x_train[:split], y_train[:split])
+    raw_calibration = estimator.predict_proba(x_train[split:])[:, 1]
+    calibrator = LogisticRegression(C=1.0, max_iter=2000)
+    calibrator.fit(_logit(raw_calibration), y_train[split:])
+    return estimator, calibrator, split
+
+
+def calibrated_probability(estimator, calibrator, x):
+    raw = estimator.predict_proba(x)[:, 1]
+    calibrated = calibrator.predict_proba(_logit(raw))[:, 1]
+    return raw, calibrated
+
+
 def evaluate_candidate(name, estimator, x_train, y_train, x_test, y_test):
-    estimator.fit(x_train, y_train)
-    probability = estimator.predict_proba(x_test)[:, 1]
+    estimator, calibrator, calibration_split = fit_chronological_calibrated(
+        estimator, x_train, y_train
+    )
+    raw_probability, probability = calibrated_probability(
+        estimator, calibrator, x_test
+    )
     return {
         "name": name,
         "pipeline": estimator,
+        "calibrator": calibrator,
+        "calibration_split": calibration_split,
+        "raw_probability": raw_probability,
         "probability": probability,
         "accuracy": float(accuracy_score(y_test, probability >= 0.5)),
         "log_loss": float(log_loss(y_test, probability)),
@@ -545,18 +597,32 @@ metrics = {
     "charting": chart_meta,
 }
 
-# Refit the selected model on all available rows only after honest model selection.
+# Fit the deployable model with a final chronological calibration block.
 selected_template = dict(candidates)[selected_name]
-selected_template.fit(
-    np.array([r["x"] for r in rows], dtype=float),
-    np.array([r["y"] for r in rows], dtype=int),
+all_x = np.array([r["x"] for r in rows], dtype=float)
+all_y = np.array([r["y"] for r in rows], dtype=int)
+selected_template, final_calibrator, final_calibration_split = fit_chronological_calibrated(
+    selected_template, all_x, all_y
 )
+metrics["probability_calibration"] = {
+    "method": "chronological_platt_scaling",
+    "base_training_rows": int(final_calibration_split),
+    "calibration_rows": int(len(all_x) - final_calibration_split),
+}
+metrics["h2h_policy"] = {
+    "minimum_matches": H2H_MIN_MATCHES,
+    "prior_wins_per_player": H2H_PRIOR_WINS,
+    "reliability_matches": H2H_RELIABILITY_MATCHES,
+}
 joblib.dump(
     {
         "pipeline": selected_template,
+        "calibrator": final_calibrator,
         "features": FEATURES,
         "metrics": metrics,
         "model_name": selected_name,
+        "probability_guardrail": {"minimum": 0.05, "maximum": 0.95},
+        "quarter_kelly_cap": 0.05,
     },
     MODEL / "model.joblib",
 )
@@ -630,3 +696,4 @@ if history_path.exists():
 history_row.to_csv(history_path, index=False)
 
 print(json.dumps(metrics, indent=2))
+
