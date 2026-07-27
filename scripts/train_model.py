@@ -4,12 +4,15 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from pathlib import Path
+import sys
 import math
 import random
 import json
 import re
 import unicodedata
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
 from atp_model.tournament_features import load_surface_speeds, canonical_tournament
 
 import joblib
