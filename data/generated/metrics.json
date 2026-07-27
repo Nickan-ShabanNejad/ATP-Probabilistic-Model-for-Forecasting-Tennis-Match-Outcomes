@@ -2,26 +2,26 @@
   "training_matches": 70338,
   "test_matches": 2736,
   "holdout": "2025",
-  "selected_model": "hist_gradient_boosting",
+  "selected_model": "logistic_regression",
   "selection_metric": "lowest chronological holdout log loss, then Brier score",
   "candidate_metrics": {
     "logistic_regression": {
-      "accuracy": 0.6597222222222222,
-      "log_loss": 0.6099164358315282,
-      "brier": 0.2120872534698606,
-      "roc_auc": 0.7218262365867213
+      "accuracy": 0.6622807017543859,
+      "log_loss": 0.6104493940888236,
+      "brier": 0.21226627848615356,
+      "roc_auc": 0.7209460903766407
     },
     "hist_gradient_boosting": {
-      "accuracy": 0.6951754385964912,
-      "log_loss": 0.5443148992918351,
-      "brier": 0.1874374596728745,
-      "roc_auc": 0.7839238382283784
+      "accuracy": 0.6542397660818714,
+      "log_loss": 0.6109842202290748,
+      "brier": 0.21248039370650315,
+      "roc_auc": 0.7203673421401393
     }
   },
-  "accuracy": 0.6951754385964912,
-  "log_loss": 0.5443148992918351,
-  "brier": 0.1874374596728745,
-  "roc_auc": 0.7839238382283784,
+  "accuracy": 0.6622807017543859,
+  "log_loss": 0.6104493940888236,
+  "brier": 0.21226627848615356,
+  "roc_auc": 0.7209460903766407,
   "latest_data_date": "2026-07-19",
   "features": [
     "overall_elo_diff",
@@ -68,5 +68,15 @@
       "net_points_won": null,
       "net_points": null
     }
+  },
+  "probability_calibration": {
+    "method": "chronological_platt_scaling",
+    "base_training_rows": 63581,
+    "calibration_rows": 11221
+  },
+  "h2h_policy": {
+    "minimum_matches": 5,
+    "prior_wins_per_player": 8.0,
+    "reliability_matches": 12.0
   }
 }
