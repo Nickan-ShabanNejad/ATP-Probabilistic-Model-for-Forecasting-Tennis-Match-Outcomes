@@ -1,4 +1,3 @@
-
 name: Daily ATP production refresh
 
 on:
@@ -21,6 +20,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -58,24 +59,44 @@ jobs:
 
           root = Path(".")
           state = pd.read_csv(root / "data/generated/player_state.csv.gz")
-          freshness = json.loads((root / "data/generated/freshness.json").read_text())
-          metrics = json.loads((root / "data/generated/metrics.json").read_text())
+          freshness = json.loads(
+              (root / "data/generated/freshness.json").read_text()
+          )
+          metrics = json.loads(
+              (root / "data/generated/metrics.json").read_text()
+          )
 
           assert len(state) > 100
           assert state["overall_elo"].notna().all()
           assert freshness["matches"]["master_rows"] > 1000
           assert freshness["matches"]["current_year_rows"] > 0
-          assert metrics.get("selected_model") in {"logistic_regression", "hist_gradient_boosting"}
+
+          assert metrics.get("selected_model") in {
+              "logistic_regression",
+              "hist_gradient_boosting",
+          }
+
           assert 0.0 < metrics["accuracy"] < 0.90, (
-              "Suspicious accuracy: likely target leakage or invalid evaluation."
+              "Suspicious accuracy: likely target leakage "
+              "or invalid evaluation."
           )
+
           assert metrics["log_loss"] > 0.05
           assert metrics["brier"] > 0.01
 
           print("Player-state rows:", len(state))
-          print("Latest match:", freshness["matches"]["latest_tourney_date"])
-          print("Data age in days:", freshness["matches"]["age_days"])
-          print("Selected rows:", freshness["matches"]["selected_rows_by_source"])
+          print(
+              "Latest match:",
+              freshness["matches"]["latest_tourney_date"],
+          )
+          print(
+              "Data age in days:",
+              freshness["matches"]["age_days"],
+          )
+          print(
+              "Selected rows:",
+              freshness["matches"]["selected_rows_by_source"],
+          )
           print("Accuracy:", metrics["accuracy"])
           print("Log loss:", metrics["log_loss"])
           print("Brier:", metrics["brier"])
@@ -84,7 +105,8 @@ jobs:
       - name: Commit refreshed model, histories, and health metadata
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add \
             data/generated/player_state.csv.gz \
@@ -97,7 +119,11 @@ jobs:
             data/generated/model_history.csv \
             model/model.joblib
 
-          git diff --cached --quiet || \
-            git commit -m "Daily ATP production refresh"
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
 
-          git push
+          git commit -m "Daily ATP production refresh"
+          git pull --rebase origin main
+          git push origin main
