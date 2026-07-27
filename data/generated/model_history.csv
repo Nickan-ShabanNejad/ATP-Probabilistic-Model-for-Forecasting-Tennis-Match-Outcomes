@@ -1,0 +1,2 @@
+trained_at_utc,latest_data_date,holdout,training_matches,test_matches,accuracy,log_loss,brier,charting_available
+2026-07-27T15:23:26.463004Z,2026-01-17,2025,70338,2736,0.6619152046783626,0.6105228073248291,0.21230161337609402,True

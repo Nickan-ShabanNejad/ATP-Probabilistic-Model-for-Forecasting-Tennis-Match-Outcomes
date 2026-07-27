@@ -2,9 +2,9 @@
   "training_matches": 70338,
   "test_matches": 2736,
   "holdout": "2025",
-  "accuracy": 1.0,
-  "log_loss": 0.0002360764717766936,
-  "brier": 1.1701754564249077e-07,
+  "accuracy": 0.6619152046783626,
+  "log_loss": 0.6105228073248291,
+  "brier": 0.21230161337609402,
   "latest_data_date": "2026-01-17",
   "features": [
     "overall_elo_diff",
