@@ -305,12 +305,17 @@ for _, r in matches.iterrows():
     )
     flip = rng.random() < 0.5
     if completed:
+        # Only player-comparison features change sign when player order is flipped.
+        # Context features (tournament level and best-of format) must stay unchanged;
+        # negating them leaks the target label and creates impossible 100% accuracy.
+        differential = features[:-2]
+        context = features[-2:]
         rows.append(
             {
                 "date": date,
                 "year": date.year,
                 "y": 0 if flip else 1,
-                "x": [-x for x in features] if flip else features,
+                "x": (([-x for x in differential] + context) if flip else features),
             }
         )
 
@@ -437,4 +442,23 @@ state_df.to_csv(GENERATED / "player_state.csv.gz", index=False, compression="gzi
 (GENERATED / "metrics.json").write_text(
     json.dumps(metrics, indent=2), encoding="utf-8"
 )
+
+history_path = GENERATED / "model_history.csv"
+history_row = pd.DataFrame([{
+    "trained_at_utc": datetime.utcnow().isoformat() + "Z",
+    "latest_data_date": metrics["latest_data_date"],
+    "holdout": metrics["holdout"],
+    "training_matches": metrics["training_matches"],
+    "test_matches": metrics["test_matches"],
+    "accuracy": metrics["accuracy"],
+    "log_loss": metrics["log_loss"],
+    "brier": metrics["brier"],
+    "charting_available": metrics["charting"].get("available", False),
+}])
+if history_path.exists():
+    previous = pd.read_csv(history_path)
+    history_row = pd.concat([previous, history_row], ignore_index=True).tail(365)
+history_row.to_csv(history_path, index=False)
+
 print(json.dumps(metrics, indent=2))
+
