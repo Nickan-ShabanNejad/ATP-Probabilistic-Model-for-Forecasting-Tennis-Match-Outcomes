@@ -513,22 +513,22 @@ def main() -> None:
     append_source_history(freshness)
 
     try:
+        subprocess.check_call([
+            sys.executable,
+            str(ROOT / "scripts" / "update_surface_speed.py"),
+            "--start-year",
+            "2012",
+        ])
+    except subprocess.CalledProcessError as exc:
+        print(
+            "WARNING: Surface speed update failed. Using the existing tournament_surface_speed.csv."
+        )
+        print(exc)
+
     subprocess.check_call([
         sys.executable,
-        str(ROOT / "scripts" / "update_surface_speed.py"),
-        "--start-year",
-        "2012",
+        str(ROOT / "scripts" / "train_model.py"),
     ])
-except subprocess.CalledProcessError as exc:
-    print(
-        "WARNING: Surface speed update failed. Using the existing tournament_surface_speed.csv."
-    )
-    print(exc)
-
-subprocess.check_call([
-    sys.executable,
-    str(ROOT / "scripts" / "train_model.py"),
-])
     print(json.dumps(freshness, indent=2))
 
 
