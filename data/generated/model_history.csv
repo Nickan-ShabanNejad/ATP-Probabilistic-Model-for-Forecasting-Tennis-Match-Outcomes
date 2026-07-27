@@ -1,1 +1,2 @@
-trained_at_utc,latest_data_date,holdout,training_matches,test_matches,accuracy,log_loss,brier,charting_available
+trained_at_utc,latest_data_date,holdout,training_matches,test_matches,accuracy,log_loss,brier,charting_available,roc_auc,selected_model
+2026-07-27T15:39:17.063980Z,2026-01-17,2025,70338,2736,0.6557017543859649,0.6101265953796201,0.21208887792015946,True,0.7216653841220982,hist_gradient_boosting
