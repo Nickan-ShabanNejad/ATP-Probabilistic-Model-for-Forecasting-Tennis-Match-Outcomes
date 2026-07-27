@@ -18,7 +18,13 @@ GENERATED = ROOT / "data" / "generated"
 RAW.mkdir(parents=True, exist_ok=True)
 GENERATED.mkdir(parents=True, exist_ok=True)
 
-TML = "https://raw.githubusercontent.com/Tennismylife/TML-Database/master"
+TML_API = "https://stats.tennismylife.org/api/data-files"
+
+
+def get_tml_urls():
+    r = requests.get(TML_API, timeout=60, headers={"User-Agent":"ATP-Model-GitHub-Action/3.0"})
+    r.raise_for_status()
+    return {f["name"]: f["url"] for f in r.json()["files"]}
 MCP = "https://raw.githubusercontent.com/JeffSackmann/tennis_MatchChartingProject/master"
 
 # Jeff Sackmann's ATP match repository currently returns 404 publicly.
@@ -150,11 +156,17 @@ def refresh_match_data() -> dict:
         },
     }
 
+    tml_urls = get_tml_urls()
+
     for year in range(2000, current_year + 1):
         year_status: dict[str, dict] = {}
 
         tml_path = RAW / f"tml_atp_matches_{year}.csv"
-        tml_download = download(f"{TML}/{year}.csv", tml_path)
+        filename = f"{year}.csv"
+        if filename in tml_urls:
+            tml_download = download(tml_urls[filename], tml_path)
+        else:
+            tml_download = {"ok": False, "error": f"{filename} not found"}
         tml, tml_validation = read_match_file(tml_path, "TennisMyLife") if tml_path.exists() else (
             pd.DataFrame(), {"valid": False, "error": "file unavailable"}
         )
@@ -506,4 +518,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
