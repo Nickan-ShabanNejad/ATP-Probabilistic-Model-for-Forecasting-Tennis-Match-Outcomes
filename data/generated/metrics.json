@@ -22,7 +22,7 @@
   "log_loss": 0.6104493940888236,
   "brier": 0.21226627848615356,
   "roc_auc": 0.7209460903766407,
-  "latest_data_date": "2026-07-19",
+  "latest_data_date": "2026-07-26",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -71,8 +71,8 @@
   },
   "probability_calibration": {
     "method": "chronological_platt_scaling",
-    "base_training_rows": 63581,
-    "calibration_rows": 11221
+    "base_training_rows": 63626,
+    "calibration_rows": 11229
   },
   "h2h_policy": {
     "minimum_matches": 5,
