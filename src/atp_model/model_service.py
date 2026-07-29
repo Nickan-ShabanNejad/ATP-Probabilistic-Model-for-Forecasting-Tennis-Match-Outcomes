@@ -353,8 +353,8 @@ def predict_match(
     overall_weight = min(1.0, h2h_matches / 8.0)
     surface_weight = min(1.0, h2h_surface_matches / 5.0)
     h2h_impact = (
-        0.03 * h2h_overall_edge * overall_weight
-        + 0.02 * h2h_surface_edge * surface_weight
+        0.05 * h2h_overall_edge * overall_weight
+        + 0.04 * h2h_surface_edge * surface_weight
     )
     h2h_impact = max(-0.06, min(0.06, h2h_impact))
     probability = min(
