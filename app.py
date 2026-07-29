@@ -122,7 +122,39 @@ elif r["ev"]>=.02: st.info("Small positive-EV signal.")
 elif r["ev"]>0: st.warning("Marginal signal; likely vulnerable to estimation noise.")
 else: st.error("No estimated value on Player A at this price.")
 
-st.write(f"Quarter-Kelly reference: **{r['quarter_kelly']:.2%} of bankroll**.")
+st.write(f"Quarter-Kelly reference: **{r['quarter_kelly']:.2%} of bankroll** (uncapped).")
+
+h2h = r.get("h2h_record", {})
+h2h_matches = int(h2h.get("matches", 0))
+h2h_surface_matches = int(h2h.get("surface_matches", 0))
+h2h_impact = float(r.get("h2h_impact", 0.0))
+
+with st.expander("Head-to-head impact", expanded=True):
+    if h2h_matches == 0:
+        st.info("No recorded head-to-head matches were found for these players.")
+    else:
+        h1, h2, h3 = st.columns(3)
+        h1.metric(
+            "Overall H2H",
+            f"{int(h2h.get('player_a_wins', 0))}–{int(h2h.get('player_b_wins', 0))}",
+            help=f"{pa} wins – {pb} wins",
+        )
+        h2.metric(
+            f"H2H on {surface}",
+            f"{int(h2h.get('surface_player_a_wins', 0))}–{int(h2h.get('surface_player_b_wins', 0))}",
+            help=f"{h2h_surface_matches} recorded matches on {surface}",
+        )
+        h3.metric(
+            "Probability impact",
+            f"{h2h_impact:+.2%}",
+            help="The change applied to Player A's model probability.",
+        )
+        st.caption(
+            f"Base model probability: {r.get('base_probability_a', r['probability_a']):.2%} · "
+            f"After H2H: {r['probability_a']:.2%}. "
+            "The H2H adjustment is sample-size weighted and limited to ±4 percentage points."
+        )
+
 if st.button("Save prediction to tracking database"):
     pid=save_prediction(r,odds_a,odds_b,stake)
     st.success(f"Saved prediction #{pid}.")
@@ -159,3 +191,4 @@ st.warning("Do not treat model output as certainty. Injuries, withdrawals, trave
 
 with st.expander("Data-source status"):
     st.json(freshness if freshness else {"status":"Run the GitHub workflow to generate freshness data."})
+
