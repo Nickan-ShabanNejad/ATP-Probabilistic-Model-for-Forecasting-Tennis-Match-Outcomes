@@ -7,8 +7,8 @@
   "candidate_metrics": {
     "logistic_regression": {
       "accuracy": 0.6593567251461988,
-      "log_loss": 0.6101566763626546,
-      "brier": 0.21220619429888382,
+      "log_loss": 0.6101566763626529,
+      "brier": 0.21220619429888302,
       "roc_auc": 0.7215718652473173
     },
     "hist_gradient_boosting": {
