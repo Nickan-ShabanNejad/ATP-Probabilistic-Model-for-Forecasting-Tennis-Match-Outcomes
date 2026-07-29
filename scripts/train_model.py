@@ -1,24 +1,18 @@
-
 from __future__ import annotations
 
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from pathlib import Path
-import sys
 import math
 import random
 import json
 import re
 import unicodedata
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
-from atp_model.tournament_features import load_surface_speeds, canonical_tournament
-
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.impute import SimpleImputer
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
@@ -26,18 +20,23 @@ from sklearn.metrics import accuracy_score, brier_score_loss, log_loss, roc_auc_
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
+
 ROOT = Path(__file__).resolve().parents[1]
 GENERATED = ROOT / "data" / "generated"
 RAW = ROOT / "data" / "raw"
 MODEL = ROOT / "model"
 MODEL.mkdir(parents=True, exist_ok=True)
 
+import sys
+sys.path.insert(0, str(ROOT / "src"))
+from atp_model.tournament_features import (
+    build_surface_speed_table, encode_tournament_level, lookup_surface_speed
+)
+
 INITIAL_ELO = 1500.0
 K = 28.0
 ALPHA = 0.12
 SURFACES = {"Hard", "Clay", "Grass"}
-TOUR_LEVEL = {"G": 4.0, "M": 3.0, "A": 2.0, "D": 1.5, "F": 1.5, "C": 1.0}
-SPEED_PATH = ROOT / "data" / "tournament_surface_speed.csv"
 
 
 def number(value):
@@ -194,24 +193,10 @@ matches["date"] = pd.to_datetime(matches["tourney_date"].astype(int).astype(str)
 matches["match_num"] = pd.to_numeric(matches.get("match_num", 0), errors="coerce").fillna(0)
 matches = matches.sort_values(["date", "match_num"])
 
+speed_path = ROOT / "data" / "tournament_surface_speed.csv"
+surface_speeds = build_surface_speed_table(matches, speed_path)
+
 chart_events, chart_meta = load_charting_events()
-
-speed_data = load_surface_speeds(SPEED_PATH) if SPEED_PATH.exists() else pd.DataFrame()
-
-def prior_tournament_speed(tournament_name, match_year, surface):
-    """Latest known edition strictly before the match year (leakage-safe)."""
-    if speed_data.empty:
-        return 1.0, 1.0
-    key = canonical_tournament(tournament_name)
-    candidates = speed_data[(speed_data["tournament_key"] == key) & (speed_data["season"] < int(match_year))]
-    if not candidates.empty:
-        row = candidates.sort_values("season").iloc[-1]
-        return float(row["surface_speed"]), 0.0
-    fallback = speed_data[(speed_data["surface"].astype(str).str.title() == str(surface).title()) & (speed_data["season"] < int(match_year))]
-    if not fallback.empty:
-        latest_season = int(fallback["season"].max())
-        return float(fallback[fallback["season"] == latest_season]["surface_speed"].median()), 1.0
-    return 1.0, 1.0
 
 current_rankings = {}
 current_rankings_by_name = {}
@@ -239,8 +224,6 @@ last_seen = {}
 names = {}
 historical_ranks = {}
 ages = {}
-h2h_overall = defaultdict(lambda: {"a": 0, "b": 0})
-h2h_surface = defaultdict(lambda: {"a": 0, "b": 0})
 rows = []
 rng = random.Random(123)
 
@@ -282,15 +265,21 @@ def player_state(pid, name, surface, date):
 
 
 def feature_difference(
-    a, b, rank_a, rank_b, age_a, age_b, level, best_of,
-    h2h_edge, h2h_surface_edge, h2h_matches, court_speed, court_speed_missing
+    a, b, rank_a, rank_b, age_a, age_b, level, best_of, court_speed,
+    court_speed_missing, indoor
 ):
-    differential = [
+    surface_elo_diff = a["surface_elo"] - b["surface_elo"]
+    serve_diff = a["serve"] - b["serve"]
+    return_diff = a["return_rating"] - b["return_rating"]
+    rank_advantage = math.log(max(rank_b, 1)) - math.log(max(rank_a, 1))
+    level_centered = level - 3.0
+    speed_centered = court_speed - 1.0
+    return [
         a["overall_elo"] - b["overall_elo"],
-        a["surface_elo"] - b["surface_elo"],
-        a["serve"] - b["serve"],
-        a["return_rating"] - b["return_rating"],
-        math.log(max(rank_b, 1)) - math.log(max(rank_a, 1)),
+        surface_elo_diff,
+        serve_diff,
+        return_diff,
+        rank_advantage,
         a["win5"] - b["win5"],
         a["win10"] - b["win10"],
         a["surface_win10"] - b["surface_win10"],
@@ -308,46 +297,22 @@ def feature_difference(
         a["chart_net_win"] - b["chart_net_win"],
         a["charted_matches"] - b["charted_matches"],
         a["chart_available"] - b["chart_available"],
-        h2h_edge,
-        h2h_surface_edge,
+        # Context must interact with player differences to affect which player is favoured.
+        level_centered * surface_elo_diff / 400.0,
+        level_centered * rank_advantage,
+        level_centered * serve_diff * 10.0,
+        speed_centered * surface_elo_diff / 100.0,
+        speed_centered * serve_diff * 10.0,
+        speed_centered * return_diff * 10.0,
+        float(indoor) * serve_diff * 10.0,
+        float(indoor) * return_diff * 10.0,
+        # Standalone context values are retained for nonlinear models.
+        level,
+        best_of,
+        court_speed,
+        court_speed_missing,
+        float(indoor),
     ]
-    context = [level, best_of, math.log1p(h2h_matches), court_speed, court_speed_missing]
-    return differential, context
-
-
-H2H_MIN_MATCHES = 5
-H2H_PRIOR_WINS = 8.0
-H2H_RELIABILITY_MATCHES = 12.0
-
-
-def h2h_features(player_a, player_b, surface):
-    """Leakage-safe, strongly shrunk H2H features from prior matches only.
-
-    A small H2H sample is mostly noise. Records below H2H_MIN_MATCHES are
-    displayed to the user but contribute zero predictive edge to the model.
-    Larger samples use a Beta prior and an additional reliability weight.
-    """
-    pair = tuple(sorted((player_a, player_b)))
-    a_is_first = player_a == pair[0]
-    overall = h2h_overall[pair]
-    surf = h2h_surface[(pair, surface)]
-
-    def edge(record):
-        wins_a = record["a"] if a_is_first else record["b"]
-        wins_b = record["b"] if a_is_first else record["a"]
-        total = wins_a + wins_b
-        if total < H2H_MIN_MATCHES:
-            return 0.0, total
-        posterior = (wins_a + H2H_PRIOR_WINS) / (
-            total + 2.0 * H2H_PRIOR_WINS
-        )
-        reliability = total / (total + H2H_RELIABILITY_MATCHES)
-        return ((posterior - 0.5) * 2.0) * reliability, total
-
-    overall_edge, total = edge(overall)
-    surface_edge, surface_total = edge(surf)
-    effective_total = total if total >= H2H_MIN_MATCHES else 0
-    return overall_edge, surface_edge, effective_total
 
 
 for _, r in matches.iterrows():
@@ -370,27 +335,32 @@ for _, r in matches.iterrows():
     lrank = number(r.get("loser_rank")) or 500.0
     wage = number(r.get("winner_age"))
     lage = number(r.get("loser_age"))
-    level = TOUR_LEVEL.get(str(r.get("tourney_level", "")).upper(), 1.0)
+    level = encode_tournament_level(r.get("tourney_level", ""))
     best_of = number(r.get("best_of")) or 3.0
+    indoor_raw = str(r.get("indoor", "")).strip().lower()
+    indoor = 1.0 if indoor_raw in {"1", "true", "yes", "y", "indoor"} else 0.0
+    court_speed, court_speed_missing = lookup_surface_speed(
+        surface_speeds, str(r.get("tourney_name", "")), surface, date.year
+    )
 
     score = str(r.get("score", "")).upper()
     completed = not any(marker in score for marker in ["RET", "W/O", "DEF", "ABN"])
-    h2h_edge, h2h_surface_edge, h2h_matches = h2h_features(winner, loser, surface)
-    court_speed, court_speed_missing = prior_tournament_speed(
-        r.get("tourney_name", ""), date.year, surface
-    )
-    differential, context = feature_difference(
+    features = feature_difference(
         winner_state, loser_state, wrank, lrank, wage, lage, level, best_of,
-        h2h_edge, h2h_surface_edge, h2h_matches, court_speed, court_speed_missing
+        court_speed, court_speed_missing, indoor
     )
     flip = rng.random() < 0.5
     if completed:
+        # The first 30 values are player-comparison features and interactions.
+        # The final five are shared match-context features and must not flip sign.
+        differential = features[:30]
+        context = features[30:]
         rows.append(
             {
                 "date": date,
                 "year": date.year,
                 "y": 0 if flip else 1,
-                "x": (([-x for x in differential] + context) if flip else differential + context),
+                "x": (([-x for x in differential] + context) if flip else features),
             }
         )
 
@@ -406,11 +376,6 @@ for _, r in matches.iterrows():
     surface_delta = K * (1 - expected_surface)
     surface_elo[(winner, surface)] += surface_delta
     surface_elo[(loser, surface)] -= surface_delta
-
-    pair = tuple(sorted((winner, loser)))
-    winner_key = "a" if winner == pair[0] else "b"
-    h2h_overall[pair][winner_key] += 1
-    h2h_surface[(pair, surface)][winner_key] += 1
 
     values = [
         number(r.get(key))
@@ -455,9 +420,12 @@ FEATURES = [
     "rest_days_diff", "elo_change10_diff", "age_diff",
     "chart_serve_diff", "chart_return_diff", "chart_winner_rate_diff",
     "chart_ue_rate_diff", "chart_net_win_diff", "charted_matches_diff",
-    "chart_available_diff", "h2h_edge", "h2h_surface_edge",
-    "tournament_level", "best_of", "log_h2h_matches",
-    "court_speed", "court_speed_missing",
+    "chart_available_diff",
+    "level_surface_elo_interaction", "level_rank_interaction",
+    "level_serve_interaction", "speed_surface_elo_interaction",
+    "speed_serve_interaction", "speed_return_interaction",
+    "indoor_serve_interaction", "indoor_return_interaction",
+    "tournament_level", "best_of", "court_speed", "court_speed_missing", "indoor",
 ]
 
 if len(rows) < 1000:
@@ -475,47 +443,12 @@ else:
     holdout_label = str(holdout_year)
 
 
-def _logit(probability):
-    probability = np.clip(np.asarray(probability, dtype=float), 1e-6, 1 - 1e-6)
-    return np.log(probability / (1.0 - probability)).reshape(-1, 1)
-
-
-def fit_chronological_calibrated(estimator, x_train, y_train):
-    """Fit the model, then Platt-calibrate it on the latest training block.
-
-    The split is chronological rather than random, which avoids calibrating on
-    information from the future relative to the base-model training period.
-    """
-    split = max(500, int(len(x_train) * 0.85))
-    split = min(split, len(x_train) - 100)
-    if split <= 0:
-        raise RuntimeError("Not enough rows for chronological calibration.")
-    estimator.fit(x_train[:split], y_train[:split])
-    raw_calibration = estimator.predict_proba(x_train[split:])[:, 1]
-    calibrator = LogisticRegression(C=1.0, max_iter=2000)
-    calibrator.fit(_logit(raw_calibration), y_train[split:])
-    return estimator, calibrator, split
-
-
-def calibrated_probability(estimator, calibrator, x):
-    raw = estimator.predict_proba(x)[:, 1]
-    calibrated = calibrator.predict_proba(_logit(raw))[:, 1]
-    return raw, calibrated
-
-
 def evaluate_candidate(name, estimator, x_train, y_train, x_test, y_test):
-    estimator, calibrator, calibration_split = fit_chronological_calibrated(
-        estimator, x_train, y_train
-    )
-    raw_probability, probability = calibrated_probability(
-        estimator, calibrator, x_test
-    )
+    estimator.fit(x_train, y_train)
+    probability = estimator.predict_proba(x_test)[:, 1]
     return {
         "name": name,
         "pipeline": estimator,
-        "calibrator": calibrator,
-        "calibration_split": calibration_split,
-        "raw_probability": raw_probability,
         "probability": probability,
         "accuracy": float(accuracy_score(y_test, probability >= 0.5)),
         "log_loss": float(log_loss(y_test, probability)),
@@ -595,34 +528,22 @@ metrics = {
     "latest_data_date": matches["date"].max().strftime("%Y-%m-%d"),
     "features": FEATURES,
     "charting": chart_meta,
+    "court_speed_rows": int(len(surface_speeds)),
+    "court_speed_source": "empirical tournament-season serve conditions; prior seasons only",
 }
 
-# Fit the deployable model with a final chronological calibration block.
+# Refit the selected model on all available rows only after honest model selection.
 selected_template = dict(candidates)[selected_name]
-all_x = np.array([r["x"] for r in rows], dtype=float)
-all_y = np.array([r["y"] for r in rows], dtype=int)
-selected_template, final_calibrator, final_calibration_split = fit_chronological_calibrated(
-    selected_template, all_x, all_y
+selected_template.fit(
+    np.array([r["x"] for r in rows], dtype=float),
+    np.array([r["y"] for r in rows], dtype=int),
 )
-metrics["probability_calibration"] = {
-    "method": "chronological_platt_scaling",
-    "base_training_rows": int(final_calibration_split),
-    "calibration_rows": int(len(all_x) - final_calibration_split),
-}
-metrics["h2h_policy"] = {
-    "minimum_matches": H2H_MIN_MATCHES,
-    "prior_wins_per_player": H2H_PRIOR_WINS,
-    "reliability_matches": H2H_RELIABILITY_MATCHES,
-}
 joblib.dump(
     {
         "pipeline": selected_template,
-        "calibrator": final_calibrator,
         "features": FEATURES,
         "metrics": metrics,
         "model_name": selected_name,
-        "probability_guardrail": {"minimum": 0.05, "maximum": 0.95},
-        "quarter_kelly_cap": 0.05,
     },
     MODEL / "model.joblib",
 )
@@ -654,24 +575,6 @@ for pid, player_name in names.items():
 
 state_df = pd.DataFrame(state_rows).sort_values(["player", "surface"])
 state_df.to_csv(GENERATED / "player_state.csv.gz", index=False, compression="gzip")
-
-h2h_rows = []
-for pair, record in h2h_overall.items():
-    p1, p2 = pair
-    base = {
-        "player_1_id": p1, "player_2_id": p2,
-        "player_1": names.get(p1, p1), "player_2": names.get(p2, p2),
-        "player_1_wins": record["a"], "player_2_wins": record["b"],
-    }
-    for surface in ["All", "Hard", "Clay", "Grass"]:
-        sr = record if surface == "All" else h2h_surface[(pair, surface)]
-        h2h_rows.append({**base, "surface": surface,
-                         "surface_player_1_wins": sr["a"],
-                         "surface_player_2_wins": sr["b"]})
-pd.DataFrame(h2h_rows).to_csv(
-    GENERATED / "head_to_head.csv.gz", index=False, compression="gzip"
-)
-
 (GENERATED / "metrics.json").write_text(
     json.dumps(metrics, indent=2), encoding="utf-8"
 )
