@@ -129,10 +129,16 @@ def head_to_head_features(player_a, player_b, surface, min_matches=10):
     record = {
         "player_a": player_a,
         "player_b": player_b,
+        # Canonical keys used by the app.
         "player_a_wins": 0,
         "player_b_wins": 0,
         "surface_player_a_wins": 0,
         "surface_player_b_wins": 0,
+        # Backward-compatible aliases expected by the smoke tests.
+        "a_wins": 0,
+        "b_wins": 0,
+        "surface_a_wins": 0,
+        "surface_b_wins": 0,
         "matches": 0,
         "surface_matches": 0,
         "used_as_predictive_edge": False,
@@ -152,11 +158,28 @@ def head_to_head_features(player_a, player_b, surface, min_matches=10):
                 return 0
             return int(pd.to_numeric(frame[column], errors="coerce").fillna(0).sum())
 
-        a_wins = total(direct, "player_1_wins") + total(reverse, "player_2_wins")
-        b_wins = total(direct, "player_2_wins") + total(reverse, "player_1_wins")
+        # The aggregate file can contain one "All" row plus separate surface
+        # rows for the same pair. Use the "All" row for the overall record so
+        # the same matches are not counted twice.
+        if "surface" in direct.columns:
+            direct_all = direct[direct["surface"].astype(str).str.casefold() == "all"]
+            reverse_all = reverse[reverse["surface"].astype(str).str.casefold() == "all"]
+        else:
+            direct_all, reverse_all = direct, reverse
 
-        direct_surface = direct[direct.get("surface", pd.Series(index=direct.index, dtype=object)).astype(str).str.casefold() == str(surface).casefold()]
-        reverse_surface = reverse[reverse.get("surface", pd.Series(index=reverse.index, dtype=object)).astype(str).str.casefold() == str(surface).casefold()]
+        overall_direct = direct_all if not direct_all.empty else direct
+        overall_reverse = reverse_all if not reverse_all.empty else reverse
+        a_wins = total(overall_direct, "player_1_wins") + total(overall_reverse, "player_2_wins")
+        b_wins = total(overall_direct, "player_2_wins") + total(overall_reverse, "player_1_wins")
+
+        direct_surface = direct[
+            direct.get("surface", pd.Series(index=direct.index, dtype=object))
+            .astype(str).str.casefold() == str(surface).casefold()
+        ]
+        reverse_surface = reverse[
+            reverse.get("surface", pd.Series(index=reverse.index, dtype=object))
+            .astype(str).str.casefold() == str(surface).casefold()
+        ]
         sa_wins = total(direct_surface, "surface_player_1_wins") + total(reverse_surface, "surface_player_2_wins")
         sb_wins = total(direct_surface, "surface_player_2_wins") + total(reverse_surface, "surface_player_1_wins")
 
@@ -184,6 +207,10 @@ def head_to_head_features(player_a, player_b, surface, min_matches=10):
         "player_b_wins": b_wins,
         "surface_player_a_wins": sa_wins,
         "surface_player_b_wins": sb_wins,
+        "a_wins": a_wins,
+        "b_wins": b_wins,
+        "surface_a_wins": sa_wins,
+        "surface_b_wins": sb_wins,
         "matches": matches,
         "surface_matches": surface_matches,
     })
