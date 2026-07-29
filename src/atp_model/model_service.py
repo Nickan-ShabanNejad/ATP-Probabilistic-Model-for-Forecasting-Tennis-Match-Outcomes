@@ -12,7 +12,7 @@ STATE_BOOTSTRAP = ROOT / "data/bootstrap/player_state.csv.gz"
 MODEL_GENERATED = ROOT / "model/model.joblib"
 MODEL_BOOTSTRAP = ROOT / "model/bootstrap_model.joblib"
 SPEED_PATH = ROOT / "data/tournament_surface_speed.csv"
-H2H_PATH = ROOT / "data/generated/h2h.csv"
+H2H_PATH = ROOT / "data/generated/head_to_head.csv.gz"
 
 # Prevent numerical/model outliers from producing impossible-looking 0% or 100%
 # probabilities. The unclipped value is still returned for diagnostics.
@@ -37,14 +37,12 @@ def load_bundle():
 
 
 def load_h2h():
-    """Load optional descriptive H2H data.
-
-    H2H is deliberately not used as a predictive feature unless it is built
-    into the trained model. This avoids treating tiny samples as real edge.
-    """
     if not H2H_PATH.exists():
         return pd.DataFrame()
+
     try:
+        if H2H_PATH.suffix == ".gz":
+            return pd.read_csv(H2H_PATH, compression="gzip")
         return pd.read_csv(H2H_PATH)
     except Exception:
         return pd.DataFrame()
