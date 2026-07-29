@@ -152,7 +152,7 @@ with st.expander("Head-to-head impact", expanded=True):
         st.caption(
             f"Base model probability: {r.get('base_probability_a', r['probability_a']):.2%} · "
             f"After H2H: {r['probability_a']:.2%}. "
-            "The H2H adjustment is sample-size weighted and limited to ±4 percentage points."
+            "The H2H adjustment is sample-size weighted and limited to ±6 percentage points."
         )
 
 if st.button("Save prediction to tracking database"):
