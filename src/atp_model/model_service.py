@@ -16,8 +16,8 @@ H2H_PATH = ROOT / "data/generated/h2h.csv"
 
 # Prevent numerical/model outliers from producing impossible-looking 0% or 100%
 # probabilities. The unclipped value is still returned for diagnostics.
-MIN_PROBABILITY = 0.01
-MAX_PROBABILITY = 0.99
+MIN_PROBABILITY = 0.05
+MAX_PROBABILITY = 0.95
 
 
 def state_path():
@@ -116,6 +116,86 @@ def _h2h_record(player_a, player_b):
 
     return empty
 
+
+
+def head_to_head_features(player_a, player_b, surface, min_matches=10):
+    """Return conservative H2H features and a descriptive record.
+
+    H2H samples below ``min_matches`` are reported for display but return
+    zero predictive edge. This prevents a tiny or duplicated sample from
+    materially changing the model probability.
+    """
+    h2h = load_h2h()
+    record = {
+        "player_a": player_a,
+        "player_b": player_b,
+        "player_a_wins": 0,
+        "player_b_wins": 0,
+        "surface_player_a_wins": 0,
+        "surface_player_b_wins": 0,
+        "matches": 0,
+        "surface_matches": 0,
+        "used_as_predictive_edge": False,
+    }
+    if h2h.empty:
+        return 0.0, 0.0, 0, record
+
+    cols = set(h2h.columns)
+
+    # Aggregated schema used by this project/tests.
+    if {"player_1", "player_2"}.issubset(cols):
+        direct = h2h[(h2h["player_1"] == player_a) & (h2h["player_2"] == player_b)]
+        reverse = h2h[(h2h["player_1"] == player_b) & (h2h["player_2"] == player_a)]
+
+        def total(frame, column):
+            if frame.empty or column not in frame.columns:
+                return 0
+            return int(pd.to_numeric(frame[column], errors="coerce").fillna(0).sum())
+
+        a_wins = total(direct, "player_1_wins") + total(reverse, "player_2_wins")
+        b_wins = total(direct, "player_2_wins") + total(reverse, "player_1_wins")
+
+        direct_surface = direct[direct.get("surface", pd.Series(index=direct.index, dtype=object)).astype(str).str.casefold() == str(surface).casefold()]
+        reverse_surface = reverse[reverse.get("surface", pd.Series(index=reverse.index, dtype=object)).astype(str).str.casefold() == str(surface).casefold()]
+        sa_wins = total(direct_surface, "surface_player_1_wins") + total(reverse_surface, "surface_player_2_wins")
+        sb_wins = total(direct_surface, "surface_player_2_wins") + total(reverse_surface, "surface_player_1_wins")
+
+    # One-row-per-match schema.
+    elif {"winner", "loser"}.issubset(cols):
+        relevant = h2h[
+            ((h2h["winner"] == player_a) & (h2h["loser"] == player_b))
+            | ((h2h["winner"] == player_b) & (h2h["loser"] == player_a))
+        ]
+        a_wins = int((relevant["winner"] == player_a).sum())
+        b_wins = int((relevant["winner"] == player_b).sum())
+        if "surface" in relevant.columns:
+            on_surface = relevant[relevant["surface"].astype(str).str.casefold() == str(surface).casefold()]
+        else:
+            on_surface = relevant.iloc[0:0]
+        sa_wins = int((on_surface["winner"] == player_a).sum())
+        sb_wins = int((on_surface["winner"] == player_b).sum())
+    else:
+        return 0.0, 0.0, 0, record
+
+    matches = a_wins + b_wins
+    surface_matches = sa_wins + sb_wins
+    record.update({
+        "player_a_wins": a_wins,
+        "player_b_wins": b_wins,
+        "surface_player_a_wins": sa_wins,
+        "surface_player_b_wins": sb_wins,
+        "matches": matches,
+        "surface_matches": surface_matches,
+    })
+
+    # Descriptive only until the sample is large enough.
+    if matches < int(min_matches):
+        return 0.0, 0.0, 0, record
+
+    overall_edge = (a_wins - b_wins) / matches
+    surface_edge = ((sa_wins - sb_wins) / surface_matches) if surface_matches >= int(min_matches) else 0.0
+    record["used_as_predictive_edge"] = True
+    return float(overall_edge), float(surface_edge), int(matches), record
 
 def load_tournament_speeds():
     return load_surface_speeds(SPEED_PATH)
@@ -249,6 +329,7 @@ def predict_match(
     ev = probability * odds_a - 1.0
     fair = 1.0 / probability
     full_kelly = max(0.0, ev / (odds_a - 1.0))
+    _, _, _, h2h_record = head_to_head_features(player_a, player_b, surface)
 
     return {
         "player_a": player_a,
@@ -260,14 +341,15 @@ def predict_match(
         "court_speed_fallback": bool(speed_missing),
         "indoor": bool(indoor),
         "raw_probability_a": raw_probability,
+        "calibrated_probability_a": probability,
         "probability_a": probability,
         "probability_b": 1.0 - probability,
         "market_probability_a": no_vig,
         "edge": edge,
         "ev": ev,
         "fair_odds_a": fair,
-        "quarter_kelly": full_kelly * 0.25,
-        "h2h_record": _h2h_record(player_a, player_b),
+        "quarter_kelly": min(0.05, full_kelly * 0.25),
+        "h2h_record": h2h_record,
         "row_a": a,
         "row_b": b,
     }
