@@ -2,26 +2,26 @@
   "training_matches": 70338,
   "test_matches": 2736,
   "holdout": "2025",
-  "selected_model": "logistic_regression",
+  "selected_model": "hist_gradient_boosting",
   "selection_metric": "lowest chronological holdout log loss, then Brier score",
   "candidate_metrics": {
     "logistic_regression": {
-      "accuracy": 0.6622807017543859,
-      "log_loss": 0.6104493940888236,
-      "brier": 0.21226627848615356,
-      "roc_auc": 0.7209460903766407
+      "accuracy": 0.6593567251461988,
+      "log_loss": 0.6101566763626546,
+      "brier": 0.21220619429888382,
+      "roc_auc": 0.7215718652473173
     },
     "hist_gradient_boosting": {
-      "accuracy": 0.6542397660818714,
-      "log_loss": 0.6109842202290748,
-      "brier": 0.21248039370650315,
-      "roc_auc": 0.7203673421401393
+      "accuracy": 0.6546052631578947,
+      "log_loss": 0.6093020381568608,
+      "brier": 0.21164720579879379,
+      "roc_auc": 0.7232012312427857
     }
   },
-  "accuracy": 0.6622807017543859,
-  "log_loss": 0.6104493940888236,
-  "brier": 0.21226627848615356,
-  "roc_auc": 0.7209460903766407,
+  "accuracy": 0.6546052631578947,
+  "log_loss": 0.6093020381568608,
+  "brier": 0.21164720579879379,
+  "roc_auc": 0.7232012312427857,
   "latest_data_date": "2026-07-26",
   "features": [
     "overall_elo_diff",
@@ -46,13 +46,19 @@
     "chart_net_win_diff",
     "charted_matches_diff",
     "chart_available_diff",
-    "h2h_edge",
-    "h2h_surface_edge",
+    "level_surface_elo_interaction",
+    "level_rank_interaction",
+    "level_serve_interaction",
+    "speed_surface_elo_interaction",
+    "speed_serve_interaction",
+    "speed_return_interaction",
+    "indoor_serve_interaction",
+    "indoor_return_interaction",
     "tournament_level",
     "best_of",
-    "log_h2h_matches",
     "court_speed",
-    "court_speed_missing"
+    "court_speed_missing",
+    "indoor"
   ],
   "charting": {
     "available": true,
@@ -69,14 +75,6 @@
       "net_points": null
     }
   },
-  "probability_calibration": {
-    "method": "chronological_platt_scaling",
-    "base_training_rows": 63626,
-    "calibration_rows": 11229
-  },
-  "h2h_policy": {
-    "minimum_matches": 5,
-    "prior_wins_per_player": 8.0,
-    "reliability_matches": 12.0
-  }
+  "court_speed_rows": 1685,
+  "court_speed_source": "empirical tournament-season serve conditions; prior seasons only"
 }
