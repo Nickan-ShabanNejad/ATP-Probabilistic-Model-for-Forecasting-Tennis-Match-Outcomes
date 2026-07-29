@@ -118,7 +118,7 @@ def _h2h_record(player_a, player_b):
 
 
 
-def head_to_head_features(player_a, player_b, surface, min_matches=10):
+def head_to_head_features(player_a, player_b, surface, min_matches=2):
     """Return conservative H2H features and a descriptive record.
 
     H2H samples below ``min_matches`` are reported for display but return
@@ -343,7 +343,28 @@ def predict_match(
         columns=feature_order,
     )
     raw_probability = float(bundle["pipeline"].predict_proba(x)[0, 1])
-    probability = min(MAX_PROBABILITY, max(MIN_PROBABILITY, raw_probability))
+    base_probability = min(MAX_PROBABILITY, max(MIN_PROBABILITY, raw_probability))
+
+    # Apply a conservative, sample-size-weighted H2H adjustment.
+    # The maximum impact is capped at +/- 4 percentage points so a small
+    # matchup sample cannot overwhelm the trained model.
+    h2h_overall_edge, h2h_surface_edge, h2h_matches, h2h_record = (
+        head_to_head_features(player_a, player_b, surface)
+    )
+    h2h_surface_matches = int(h2h_record.get("surface_matches", 0))
+    overall_weight = min(1.0, h2h_matches / 8.0)
+    surface_weight = min(1.0, h2h_surface_matches / 5.0)
+    h2h_impact = (
+        0.03 * h2h_overall_edge * overall_weight
+        + 0.02 * h2h_surface_edge * surface_weight
+    )
+    h2h_impact = max(-0.04, min(0.04, h2h_impact))
+    probability = min(
+        MAX_PROBABILITY,
+        max(MIN_PROBABILITY, base_probability + h2h_impact),
+    )
+    # Store the actual applied change after probability clipping.
+    h2h_impact = probability - base_probability
 
     odds_a = float(odds_a)
     odds_b = float(odds_b)
@@ -356,7 +377,6 @@ def predict_match(
     ev = probability * odds_a - 1.0
     fair = 1.0 / probability
     full_kelly = max(0.0, ev / (odds_a - 1.0))
-    _, _, _, h2h_record = head_to_head_features(player_a, player_b, surface)
 
     return {
         "player_a": player_a,
@@ -375,9 +395,14 @@ def predict_match(
         "edge": edge,
         "ev": ev,
         "fair_odds_a": fair,
-        "quarter_kelly": min(0.05, full_kelly * 0.25),
+        "quarter_kelly": full_kelly * 0.25,
+        "base_probability_a": base_probability,
+        "h2h_impact": h2h_impact,
+        "h2h_overall_edge": h2h_overall_edge,
+        "h2h_surface_edge": h2h_surface_edge,
         "h2h_record": h2h_record,
         "row_a": a,
         "row_b": b,
     }
+
 
