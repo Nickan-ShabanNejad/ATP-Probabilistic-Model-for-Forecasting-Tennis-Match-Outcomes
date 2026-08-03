@@ -268,20 +268,20 @@ def predict_match(
     court_speed_override=None,
     indoor=False,
 ):
+    """Predict a match with order-invariant probabilities.
+
+    Tree-based classifiers do not naturally guarantee that predicting A vs B
+    is the exact complement of predicting B vs A. To remove that artificial
+    player-order effect, this function predicts both orientations and averages
+    them on the same Player-A scale:
+
+        P(A wins) = 0.5 * [P_model(A vs B) + 1 - P_model(B vs A)]
+
+    Therefore reversing the matchup always produces complementary probabilities.
+    """
     a = get_player_row(df, player_a, surface)
     b = get_player_row(df, player_b, surface)
 
-    def diff(key, default=0.0):
-        av = float(a[key]) if key in a and pd.notna(a[key]) else default
-        bv = float(b[key]) if key in b and pd.notna(b[key]) else default
-        return av - bv
-
-    surface_elo_diff = diff("surface_elo")
-    serve_diff = diff("serve")
-    return_diff = diff("return_rating")
-    rank_advantage = math.log(max(float(rank_b), 1.0)) - math.log(
-        max(float(rank_a), 1.0)
-    )
     level = float(tournament_level)
     level_centered = level - 3.0
 
@@ -296,56 +296,83 @@ def predict_match(
 
     speed_centered = speed - 1.0
     indoor_value = 1.0 if indoor else 0.0
+    feature_order = bundle.get("features")
 
-    feature_values = {
-        "overall_elo_diff": diff("overall_elo"),
-        "surface_elo_diff": surface_elo_diff,
-        "serve_diff": serve_diff,
-        "return_diff": return_diff,
-        "log_rank_advantage": rank_advantage,
-        "win5_diff": diff("win5"),
-        "win10_diff": diff("win10"),
-        "surface_win10_diff": diff("surface_win10"),
-        "opp_elo10_diff": diff("opp_elo10"),
-        "recent_perf10_diff": diff("recent_perf10"),
-        "matches7_diff": diff("matches7"),
-        "matches14_diff": diff("matches14"),
-        "rest_days_diff": diff("rest_days"),
-        "elo_change10_diff": diff("elo_change10"),
-        "age_diff": diff("age"),
-        "chart_serve_diff": diff("chart_serve"),
-        "chart_return_diff": diff("chart_return"),
-        "chart_winner_rate_diff": diff("chart_winner_rate"),
-        "chart_ue_rate_diff": diff("chart_ue_rate"),
-        "chart_net_win_diff": diff("chart_net_win"),
-        "charted_matches_diff": diff("charted_matches"),
-        "chart_available_diff": diff("chart_available"),
-        "level_surface_elo_interaction": level_centered * surface_elo_diff / 400.0,
-        "level_rank_interaction": level_centered * rank_advantage,
-        "level_serve_interaction": level_centered * serve_diff * 10.0,
-        "speed_surface_elo_interaction": speed_centered * surface_elo_diff / 100.0,
-        "speed_serve_interaction": speed_centered * serve_diff * 10.0,
-        "speed_return_interaction": speed_centered * return_diff * 10.0,
-        "indoor_serve_interaction": indoor_value * serve_diff * 10.0,
-        "indoor_return_interaction": indoor_value * return_diff * 10.0,
-        "tournament_level": level,
-        "best_of": float(best_of),
-        "court_speed": speed,
-        "court_speed_missing": float(speed_missing),
-        "indoor": indoor_value,
-    }
+    def build_features(row_a, row_b, input_rank_a, input_rank_b):
+        def diff(key, default=0.0):
+            av = float(row_a[key]) if key in row_a and pd.notna(row_a[key]) else default
+            bv = float(row_b[key]) if key in row_b and pd.notna(row_b[key]) else default
+            return av - bv
 
-    feature_order = bundle.get("features", list(feature_values))
-    x = pd.DataFrame(
-        [[feature_values.get(name, 0.0) for name in feature_order]],
-        columns=feature_order,
+        surface_elo_diff = diff("surface_elo")
+        serve_diff = diff("serve")
+        return_diff = diff("return_rating")
+        rank_advantage = math.log(max(float(input_rank_b), 1.0)) - math.log(
+            max(float(input_rank_a), 1.0)
+        )
+
+        values = {
+            "overall_elo_diff": diff("overall_elo"),
+            "surface_elo_diff": surface_elo_diff,
+            "serve_diff": serve_diff,
+            "return_diff": return_diff,
+            "log_rank_advantage": rank_advantage,
+            "win5_diff": diff("win5"),
+            "win10_diff": diff("win10"),
+            "surface_win10_diff": diff("surface_win10"),
+            "opp_elo10_diff": diff("opp_elo10"),
+            "recent_perf10_diff": diff("recent_perf10"),
+            "matches7_diff": diff("matches7"),
+            "matches14_diff": diff("matches14"),
+            "rest_days_diff": diff("rest_days"),
+            "elo_change10_diff": diff("elo_change10"),
+            "age_diff": diff("age"),
+            "chart_serve_diff": diff("chart_serve"),
+            "chart_return_diff": diff("chart_return"),
+            "chart_winner_rate_diff": diff("chart_winner_rate"),
+            "chart_ue_rate_diff": diff("chart_ue_rate"),
+            "chart_net_win_diff": diff("chart_net_win"),
+            "charted_matches_diff": diff("charted_matches"),
+            "chart_available_diff": diff("chart_available"),
+            "level_surface_elo_interaction": level_centered * surface_elo_diff / 400.0,
+            "level_rank_interaction": level_centered * rank_advantage,
+            "level_serve_interaction": level_centered * serve_diff * 10.0,
+            "speed_surface_elo_interaction": speed_centered * surface_elo_diff / 100.0,
+            "speed_serve_interaction": speed_centered * serve_diff * 10.0,
+            "speed_return_interaction": speed_centered * return_diff * 10.0,
+            "indoor_serve_interaction": indoor_value * serve_diff * 10.0,
+            "indoor_return_interaction": indoor_value * return_diff * 10.0,
+            "tournament_level": level,
+            "best_of": float(best_of),
+            "court_speed": speed,
+            "court_speed_missing": float(speed_missing),
+            "indoor": indoor_value,
+        }
+        order = feature_order or list(values)
+        return pd.DataFrame(
+            [[values.get(name, 0.0) for name in order]],
+            columns=order,
+        )
+
+    x_forward = build_features(a, b, rank_a, rank_b)
+    x_reverse = build_features(b, a, rank_b, rank_a)
+
+    forward_probability = float(bundle["pipeline"].predict_proba(x_forward)[0, 1])
+    reverse_probability_for_b = float(bundle["pipeline"].predict_proba(x_reverse)[0, 1])
+    reverse_probability_for_a = 1.0 - reverse_probability_for_b
+
+    # Average both orientations to eliminate arbitrary Player-A / Player-B bias.
+    symmetric_raw_probability = 0.5 * (
+        forward_probability + reverse_probability_for_a
     )
-    raw_probability = float(bundle["pipeline"].predict_proba(x)[0, 1])
-    base_probability = min(MAX_PROBABILITY, max(MIN_PROBABILITY, raw_probability))
+    symmetry_gap_before_fix = forward_probability - reverse_probability_for_a
+    base_probability = min(
+        MAX_PROBABILITY,
+        max(MIN_PROBABILITY, symmetric_raw_probability),
+    )
 
-    # Apply a conservative, sample-size-weighted H2H adjustment.
-    # The maximum impact is capped at +/- 4 percentage points so a small
-    # matchup sample cannot overwhelm the trained model.
+    # Apply the H2H adjustment after symmetrization. The H2H calculation itself
+    # changes sign when players are reversed, preserving complementarity.
     h2h_overall_edge, h2h_surface_edge, h2h_matches, h2h_record = (
         head_to_head_features(player_a, player_b, surface)
     )
@@ -361,7 +388,6 @@ def predict_match(
         MAX_PROBABILITY,
         max(MIN_PROBABILITY, base_probability + h2h_impact),
     )
-    # Store the actual applied change after probability clipping.
     h2h_impact = probability - base_probability
 
     odds_a = float(odds_a)
@@ -385,7 +411,11 @@ def predict_match(
         "court_speed": speed,
         "court_speed_fallback": bool(speed_missing),
         "indoor": bool(indoor),
-        "raw_probability_a": raw_probability,
+        # Backward-compatible key now contains the symmetrized raw probability.
+        "raw_probability_a": symmetric_raw_probability,
+        "forward_raw_probability_a": forward_probability,
+        "reverse_raw_probability_a": reverse_probability_for_a,
+        "symmetry_gap_before_fix": symmetry_gap_before_fix,
         "calibrated_probability_a": probability,
         "probability_a": probability,
         "probability_b": 1.0 - probability,
@@ -402,5 +432,4 @@ def predict_match(
         "row_a": a,
         "row_b": b,
     }
-
 
