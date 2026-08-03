@@ -110,12 +110,13 @@ r=predict_match(
     court_speed_override=court_speed,
     indoor=indoor,
 )
-c1,c2,c3,c4,c5=st.columns(5)
+c1,c2,c3,c4,c5,c6=st.columns(6)
 c1.metric("Model P(A)",f"{r['probability_a']:.1%}")
-c2.metric("Market no-vig P(A)",f"{r['market_probability_a']:.1%}")
-c3.metric("Edge",f"{r['edge']:+.1%}")
-c4.metric("Expected value",f"{r['ev']:+.1%}")
-c5.metric("Fair odds A",f"{r['fair_odds_a']:.2f}")
+c2.metric("Model P(B)",f"{r['probability_b']:.1%}")
+c3.metric("Market no-vig P(A)",f"{r['market_probability_a']:.1%}")
+c4.metric("Edge",f"{r['edge']:+.1%}")
+c5.metric("Expected value",f"{r['ev']:+.1%}")
+c6.metric("Fair odds A",f"{r['fair_odds_a']:.2f}")
 
 if r["ev"]>=.05: st.success("Strong positive-EV signal — still subject to model and data risk.")
 elif r["ev"]>=.02: st.info("Small positive-EV signal.")
@@ -123,6 +124,17 @@ elif r["ev"]>0: st.warning("Marginal signal; likely vulnerable to estimation noi
 else: st.error("No estimated value on Player A at this price.")
 
 st.write(f"Quarter-Kelly reference: **{r['quarter_kelly']:.2%} of bankroll** (uncapped).")
+
+with st.expander("Player-order symmetry audit"):
+    st.success(
+        f"Displayed probabilities sum to {(r['probability_a'] + r['probability_b']):.2%}. "
+        "The model now averages both player orientations, so reversing A and B gives the exact complement."
+    )
+    st.caption(
+        f"Original A→B raw prediction: {r.get('forward_raw_probability_a', r['raw_probability_a']):.2%} · "
+        f"Reverse prediction converted to P(A): {r.get('reverse_raw_probability_a', r['raw_probability_a']):.2%} · "
+        f"pre-fix order gap: {r.get('symmetry_gap_before_fix', 0.0):+.2%}."
+    )
 
 h2h = r.get("h2h_record", {})
 h2h_matches = int(h2h.get("matches", 0))
@@ -191,4 +203,5 @@ st.warning("Do not treat model output as certainty. Injuries, withdrawals, trave
 
 with st.expander("Data-source status"):
     st.json(freshness if freshness else {"status":"Run the GitHub workflow to generate freshness data."})
+
 
