@@ -111,12 +111,12 @@ r=predict_match(
     indoor=indoor,
 )
 c1,c2,c3,c4,c5,c6=st.columns(6)
-c1.("Model P(A)",f"{r['probability_a']:.1%}")
-c2.("Model P(B)",f"{r['probability_b']:.1%}")
-c3.("Market no-vig P(A)",f"{r['market_probability_a']:.1%}")
-c4.("Edge",f"{r['edge']:+.1%}")
-c5.("Expected value",f"{r['ev']:+.1%}")
-c6.("Fair odds A",f"{r['fair_odds_a']:.2f}")
+c1.metric("Model P(A)", f"{r['probability_a']:.1%}")
+c2.metric("Model P(B)", f"{r['probability_b']:.1%}")
+c3.metric("Market no-vig P(A)", f"{r['market_probability_a']:.1%}")
+c4.metric("Edge", f"{r['edge']:+.1%}")
+c5.metric("Expected value", f"{r['ev']:+.1%}")
+c6.metric("Fair odds A", f"{r['fair_odds_a']:.2f}")
 
 if r["ev"]>=.05: st.success("Strong positive-EV signal — still subject to model and data risk.")
 elif r["ev"]>=.02: st.info("Small positive-EV signal.")
