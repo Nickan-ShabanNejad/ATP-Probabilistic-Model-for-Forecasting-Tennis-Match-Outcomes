@@ -49,7 +49,7 @@ if ranking_method=="latest observed ranking in match data":
         "Current ranking defaults are derived from each player's latest recorded match, "
         "not a guaranteed live ATP ranking. You can override the ranking inputs manually."
     )
-if metrics.get("accuracy",0)>0.9:
+if s.get("accuracy",0)>0.9:
     st.error("Model accuracy is suspiciously high. Review the Data Health page before relying on predictions.")
 
 names=sorted(df.player.dropna().unique())
@@ -111,12 +111,12 @@ r=predict_match(
     indoor=indoor,
 )
 c1,c2,c3,c4,c5,c6=st.columns(6)
-c1.metric("Model P(A)",f"{r['probability_a']:.1%}")
-c2.metric("Model P(B)",f"{r['probability_b']:.1%}")
-c3.metric("Market no-vig P(A)",f"{r['market_probability_a']:.1%}")
-c4.metric("Edge",f"{r['edge']:+.1%}")
-c5.metric("Expected value",f"{r['ev']:+.1%}")
-c6.metric("Fair odds A",f"{r['fair_odds_a']:.2f}")
+c1.("Model P(A)",f"{r['probability_a']:.1%}")
+c2.("Model P(B)",f"{r['probability_b']:.1%}")
+c3.("Market no-vig P(A)",f"{r['market_probability_a']:.1%}")
+c4.("Edge",f"{r['edge']:+.1%}")
+c5.("Expected value",f"{r['ev']:+.1%}")
+c6.("Fair odds A",f"{r['fair_odds_a']:.2f}")
 
 if r["ev"]>=.05: st.success("Strong positive-EV signal — still subject to model and data risk.")
 elif r["ev"]>=.02: st.info("Small positive-EV signal.")
@@ -146,17 +146,17 @@ with st.expander("Head-to-head impact", expanded=True):
         st.info("No recorded head-to-head matches were found for these players.")
     else:
         h1, h2, h3 = st.columns(3)
-        h1.metric(
+        h1.(
             "Overall H2H",
             f"{int(h2h.get('player_a_wins', 0))}–{int(h2h.get('player_b_wins', 0))}",
             help=f"{pa} wins – {pb} wins",
         )
-        h2.metric(
+        h2.(
             f"H2H on {surface}",
             f"{int(h2h.get('surface_player_a_wins', 0))}–{int(h2h.get('surface_player_b_wins', 0))}",
             help=f"{h2h_surface_matches} recorded matches on {surface}",
         )
-        h3.metric(
+        h3.(
             "Probability impact",
             f"{h2h_impact:+.2%}",
             help="The change applied to Player A's model probability.",
@@ -172,26 +172,65 @@ if st.button("Save prediction to tracking database"):
     st.success(f"Saved prediction #{pid}.")
 
 def metric_table(row):
-    return pd.DataFrame({
-      "Metric":["Overall Elo","Surface Elo","Serve rating","Return rating","Last 5 win rate",
-      "Last 10 win rate","Surface last 10","Average opponent Elo (last 10)",
-      "Recent performance vs expectation","Matches in 7 days","Matches in 14 days",
-      "Rest days","Recent Elo change","Charted serve points won","Charted return points won",
-      "Charted winner rate","Charted unforced-error rate","Charted net success",
-      "Charted matches used","Last match"],
-      "Value":[row.overall_elo,row.surface_elo,row.serve,row.return_rating,row.win5,row.win10,
-      row.surface_win10,row.opp_elo10,row.recent_perf10,row.matches7,row.matches14,
-      row.rest_days,row.elo_change10,
-      getattr(row,"chart_serve",None),getattr(row,"chart_return",None),
-      getattr(row,"chart_winner_rate",None),getattr(row,"chart_ue_rate",None),
-      getattr(row,"chart_net_win",None),getattr(row,"charted_matches",0),row.last_match]
-    })
+    metrics = [
+        ("Overall Elo", row.overall_elo),
+        ("Surface Elo", row.surface_elo),
+        ("Serve rating", row.serve),
+        ("Return rating", row.return_rating),
+        ("Last 5 win rate", row.win5),
+        ("Last 10 win rate", row.win10),
+        ("Surface last 10", row.surface_win10),
+        ("Average opponent Elo (last 10)", row.opp_elo10),
+        ("Recent performance vs expectation", row.recent_perf10),
+        ("Matches in 7 days", row.matches7),
+        ("Matches in 14 days", row.matches14),
+        ("Rest days", row.rest_days),
+        ("Recent Elo change", row.elo_change10),
+        ("Charted serve points won", getattr(row, "chart_serve", None)),
+        ("Charted return points won", getattr(row, "chart_return", None)),
+        ("Charted winner rate", getattr(row, "chart_winner_rate", None)),
+        ("Charted unforced-error rate", getattr(row, "chart_ue_rate", None)),
+        ("Charted net success", getattr(row, "chart_net_win", None)),
+        ("Charted matches used", getattr(row, "charted_matches", 0)),
+        ("Last match", row.last_match),
+    ]
 
-l,rcol=st.columns(2)
+    formatted = []
+
+    for name, value in metrics:
+        if pd.isna(value):
+            value = ""
+        elif isinstance(value, (int, float)):
+            if "rate" in name.lower() or "win" in name.lower():
+                value = f"{value:.3f}"
+            elif "elo" in name.lower():
+                value = f"{value:.1f}"
+            else:
+                value = f"{value}"
+        else:
+            value = str(value)
+
+        formatted.append((name, value))
+
+    return pd.DataFrame(formatted, columns=["Metric", "Value"])
+
+l, rcol = st.columns(2)
+
 with l:
-    st.subheader(pa); st.dataframe(metric_table(r["row_a"]),hide_index=True,use_container_width=True)
+    st.subheader(pa)
+    st.dataframe(
+        metric_table(r["row_a"]),
+        hide_index=True,
+        width="stretch",
+    )
+
 with rcol:
-    st.subheader(pb); st.dataframe(metric_table(r["row_b"]),hide_index=True,use_container_width=True)
+    st.subheader(pb)
+    st.dataframe(
+        metric_table(r["row_b"]),
+        hide_index=True,
+        width="stretch",
+    )
 
 st.caption(
     f"Prediction context: {level_label} · "
