@@ -49,8 +49,11 @@ if ranking_method=="latest observed ranking in match data":
         "Current ranking defaults are derived from each player's latest recorded match, "
         "not a guaranteed live ATP ranking. You can override the ranking inputs manually."
     )
-if s.get("accuracy",0)>0.9:
-    st.error("Model accuracy is suspiciously high. Review the Data Health page before relying on predictions.")
+if metrics.get("accuracy", 0) > 0.9:
+    st.error(
+        "Model accuracy is suspiciously high. "
+        "Review the Data Health page before relying on predictions."
+    )
 
 names=sorted(df.player.dropna().unique())
 with st.sidebar:
