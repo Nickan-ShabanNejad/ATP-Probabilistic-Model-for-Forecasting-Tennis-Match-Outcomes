@@ -146,17 +146,17 @@ with st.expander("Head-to-head impact", expanded=True):
         st.info("No recorded head-to-head matches were found for these players.")
     else:
         h1, h2, h3 = st.columns(3)
-        h1.(
+        h1.metric(
             "Overall H2H",
             f"{int(h2h.get('player_a_wins', 0))}–{int(h2h.get('player_b_wins', 0))}",
             help=f"{pa} wins – {pb} wins",
         )
-        h2.(
+        h2.metric(
             f"H2H on {surface}",
             f"{int(h2h.get('surface_player_a_wins', 0))}–{int(h2h.get('surface_player_b_wins', 0))}",
             help=f"{h2h_surface_matches} recorded matches on {surface}",
         )
-        h3.(
+        h3.metric(
             "Probability impact",
             f"{h2h_impact:+.2%}",
             help="The change applied to Player A's model probability.",
@@ -242,5 +242,6 @@ st.warning("Do not treat model output as certainty. Injuries, withdrawals, trave
 
 with st.expander("Data-source status"):
     st.json(freshness if freshness else {"status":"Run the GitHub workflow to generate freshness data."})
+
 
 
