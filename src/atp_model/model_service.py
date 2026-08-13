@@ -25,7 +25,8 @@ EMPIRICAL_SPEED_PATH = ROOT / "data/generated/tournament_surface_speed_empirical
 
 MIN_PROBABILITY = 0.05
 MAX_PROBABILITY = 0.95
-MIN_H2H_PREDICTIVE_MATCHES = 4
+H2H_PRIOR_MATCHES = 6.0
+H2H_METRIC_PRIOR_MATCHES = 6.0
 
 
 def state_path():
@@ -121,25 +122,24 @@ def _h2h_model_state(player_a, player_b, surface):
         sa = sb = 0
     surface_matches = sa + sb
 
-    # H2H is descriptive immediately, but directional H2H edges are only fed
-    # into the model once there is enough evidence. A 1-0, 2-0, or 3-0
-    # record is too noisy to be treated as predictive edge.
-    predictive_overall = matches >= MIN_H2H_PREDICTIVE_MATCHES
-    predictive_surface = surface_matches >= MIN_H2H_PREDICTIVE_MATCHES
-    raw = (a_wins - b_wins) / matches if predictive_overall else 0.0
-    sraw = (sa - sb) / surface_matches if predictive_surface else 0.0
-    overall_edge = raw * matches / (matches + 4.0) if predictive_overall else 0.0
-    surface_edge = sraw * surface_matches / (surface_matches + 3.0) if predictive_surface else 0.0
+    # H2H contributes from the first prior meeting, but is continuously
+    # shrunk toward neutral (50/50) instead of using a hard sample cutoff.
+    # With a six-match neutral prior, a 3-0 record has an effective H2H
+    # win probability of 66.7%, rather than being treated as either 50% or 100%.
+    predictive_overall = matches > 0
+    predictive_surface = surface_matches > 0
+    overall_edge = (a_wins - b_wins) / (matches + H2H_PRIOR_MATCHES) if predictive_overall else 0.0
+    surface_edge = (sa - sb) / (surface_matches + H2H_PRIOR_MATCHES) if predictive_surface else 0.0
 
     def metric_diff(row, p1_col, p2_col, evidence):
-        if row is None or evidence < MIN_H2H_PREDICTIVE_MATCHES:
+        if row is None or evidence <= 0:
             return 0.0
         p1 = _numeric(row, p1_col, np.nan)
         p2 = _numeric(row, p2_col, np.nan)
         if not np.isfinite(p1) or not np.isfinite(p2):
             return 0.0
         raw_diff = (p1 - p2) * orientation
-        return float(raw_diff * evidence / (evidence + 3.0))
+        return float(raw_diff * evidence / (evidence + H2H_METRIC_PRIOR_MATCHES))
 
     record = {
         "h2h_overall_edge": float(overall_edge),
@@ -164,7 +164,7 @@ def _h2h_model_state(player_a, player_b, surface):
     return record
 
 
-def head_to_head_features(player_a, player_b, surface, min_matches=MIN_H2H_PREDICTIVE_MATCHES):
+def head_to_head_features(player_a, player_b, surface, min_matches=1):
     """Backward-compatible H2H accessor.
 
     The returned edges are now model inputs. No probability is manually added or
@@ -172,7 +172,6 @@ def head_to_head_features(player_a, player_b, surface, min_matches=MIN_H2H_PREDI
     """
     record = _h2h_model_state(player_a, player_b, surface)
     if record["matches"] < int(min_matches):
-        # Keep descriptive record while heavily protecting one-off samples.
         return 0.0, 0.0, int(record["matches"]), record
     return (
         float(record["h2h_overall_edge"]),
