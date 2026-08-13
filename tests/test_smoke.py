@@ -46,7 +46,7 @@ def test_probability_safety_and_order_invariance():
     assert abs(ab["probability_a"] + ba["probability_a"] - 1.0) < 1e-10
 
 
-def test_small_h2h_samples_are_not_used_as_predictive_edge():
+def test_small_h2h_samples_are_continuously_shrunk_not_ignored():
     from atp_model import model_service
 
     mock = pd.DataFrame([
@@ -69,17 +69,20 @@ def test_small_h2h_samples_are_not_used_as_predictive_edge():
     try:
         model_service.load_h2h = lambda: mock
         overall, surface, n, record = model_service.head_to_head_features("Player A", "Player B", "Hard")
+        reverse = model_service._h2h_model_state("Player B", "Player A", "Hard")
         assert record["a_wins"] == 3 and record["b_wins"] == 0
         assert n == 3
-        assert overall == 0.0
-        assert surface == 0.0
-        assert record["h2h_serve_diff"] == 0.0
-        assert record["h2h_second_serve_diff"] == 0.0
-        assert record["h2h_bp_convert_diff"] == 0.0
-        assert record["used_as_predictive_edge"] is False
+        # Six-match neutral prior: 3-0 => edge 3/(3+6)=1/3, equivalent to 66.7% H2H strength.
+        assert np.isclose(overall, 1.0 / 3.0)
+        assert np.isclose(surface, 1.0 / 3.0)
+        assert 0.0 < record["h2h_serve_diff"] < 0.06
+        assert 0.0 < record["h2h_second_serve_diff"] < 0.07
+        assert 0.0 < record["h2h_bp_convert_diff"] < 0.11
+        assert record["used_as_predictive_edge"] is True
+        assert np.isclose(reverse["h2h_overall_edge"], -overall)
+        assert np.isclose(reverse["h2h_surface_edge"], -surface)
     finally:
         model_service.load_h2h = original
-
 
 def test_large_h2h_sample_is_shrunk_and_order_symmetric():
     from atp_model import model_service
