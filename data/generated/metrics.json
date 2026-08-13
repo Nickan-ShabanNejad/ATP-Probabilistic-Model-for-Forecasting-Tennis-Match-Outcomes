@@ -1,31 +1,31 @@
 {
-  "training_matches": 12800,
-  "test_matches": 2737,
+  "training_matches": 70325,
+  "test_matches": 2736,
   "holdout": "2025",
   "selected_model": "hist_gradient_boosting",
   "selection_metric": "lowest chronological holdout log loss, then Brier score",
   "candidate_metrics": {
     "logistic_regression": {
-      "accuracy": 0.6532700036536354,
-      "log_loss": 0.6194758887446413,
-      "brier": 0.21620331107219945,
-      "roc_auc": 0.7115789406235282,
-      "ece_10bin": 0.029300710712107242
+      "accuracy": 0.6542397660818714,
+      "log_loss": 0.6124484682571082,
+      "brier": 0.21313163845150057,
+      "roc_auc": 0.719282767612859,
+      "ece_10bin": 0.022189811744882916
     },
     "hist_gradient_boosting": {
-      "accuracy": 0.6463280964559737,
-      "log_loss": 0.6189176006011216,
-      "brier": 0.21579552790492199,
-      "roc_auc": 0.7112785821156131,
-      "ece_10bin": 0.027045739274068527
+      "accuracy": 0.6509502923976608,
+      "log_loss": 0.610853917277173,
+      "brier": 0.21221522041549845,
+      "roc_auc": 0.7221656976744186,
+      "ece_10bin": 0.026005981414955748
     }
   },
-  "accuracy": 0.6463280964559737,
-  "log_loss": 0.6189176006011216,
-  "brier": 0.21579552790492199,
-  "roc_auc": 0.7112785821156131,
-  "ece_10bin": 0.027045739274068527,
-  "latest_data_date": "2026-01-17",
+  "accuracy": 0.6509502923976608,
+  "log_loss": 0.610853917277173,
+  "brier": 0.21221522041549845,
+  "roc_auc": 0.7221656976744186,
+  "ece_10bin": 0.026005981414955748,
+  "latest_data_date": "2026-08-13",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -145,10 +145,11 @@
     ]
   },
   "charting": {
-    "available": false,
-    "reason": "overview file missing"
+    "available": true,
+    "players": 1002,
+    "rows": 56850
   },
-  "court_speed_rows": 493,
+  "court_speed_rows": 2047,
   "court_speed_source": "legacy/empirical surface-speed table",
   "pipeline_version": "4.0-matchstat-recent-form-h2h-speed"
 }
