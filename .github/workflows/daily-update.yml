@@ -1,0 +1,134 @@
+name: Daily ATP production refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: atp-daily-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Verify Matchstat secret
+        env:
+          MATCHSTAT_API_KEY: ${{ secrets.MATCHSTAT_API_KEY }}
+        run: |
+          if [ -z "$MATCHSTAT_API_KEY" ]; then
+            echo "MATCHSTAT_API_KEY is missing. Add the rotated RapidAPI key as a repository Actions secret."
+            exit 1
+          fi
+
+      - name: Download, validate, merge, and retrain
+        env:
+          MATCHSTAT_API_KEY: ${{ secrets.MATCHSTAT_API_KEY }}
+          MATCHSTAT_SYNC_TOP_N: "350"
+          MATCHSTAT_MIN_INTERVAL: "0.66"
+          ATP_RANKINGS_CSV_URL: ${{ secrets.ATP_RANKINGS_CSV_URL }}
+        run: python scripts/update_data.py
+
+      - name: Run smoke tests
+        run: pytest -q
+
+      - name: Verify deployable artifacts and data quality
+        run: |
+          test -s data/generated/master_matches.csv.gz
+          test -s data/generated/player_state.csv.gz
+          test -s data/generated/head_to_head.csv.gz
+          test -s data/generated/tournament_surface_speed_empirical.csv
+          test -s data/generated/matchstat_current_rankings.csv
+          test -s data/generated/current_rankings.csv
+          test -s data/generated/freshness.json
+          test -s data/generated/metrics.json
+          test -s data/generated/source_history.csv
+          test -s data/generated/model_history.csv
+          test -s model/model.joblib
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path(".")
+          state = pd.read_csv(root / "data/generated/player_state.csv.gz")
+          master = pd.read_csv(root / "data/generated/master_matches.csv.gz", low_memory=False)
+          freshness = json.loads((root / "data/generated/freshness.json").read_text())
+          metrics = json.loads((root / "data/generated/metrics.json").read_text())
+
+          assert len(state) > 100
+          assert len(master) > 1000
+          assert state["overall_elo"].notna().all()
+          assert freshness["matches"]["current_year_rows"] > 0
+          assert freshness["matches"].get("matchstat", {}).get("ok") is True
+          assert freshness["reference"]["rankings"].get("method") == "Matchstat ATP singles rankings"
+          assert metrics.get("pipeline_version") == "4.0-matchstat-recent-form-h2h-speed"
+          assert metrics.get("selected_model") in {"logistic_regression", "hist_gradient_boosting"}
+          assert 0.0 < metrics["accuracy"] < 0.90
+          assert metrics["log_loss"] > 0.05
+          assert metrics["brier"] > 0.01
+
+          print("Master rows:", len(master))
+          print("Player-state rows:", len(state))
+          print("Latest match:", freshness["matches"]["latest_tourney_date"])
+          print("Matchstat rows:", freshness["matches"]["matchstat"].get("usable_match_rows"))
+          print("Accuracy:", metrics["accuracy"])
+          print("Log loss:", metrics["log_loss"])
+          print("Brier:", metrics["brier"])
+          PY
+
+      - name: Commit refreshed model, histories, and health metadata
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            data/generated/master_matches.csv.gz \
+            data/generated/player_state.csv.gz \
+            data/generated/head_to_head.csv.gz \
+            data/generated/tournament_surface_speed_empirical.csv \
+            data/generated/matchstat_current_rankings.csv \
+            data/generated/current_rankings.csv \
+            data/generated/freshness.json \
+            data/generated/metrics.json \
+            data/generated/source_history.csv \
+            data/generated/model_history.csv \
+            model/model.joblib
+
+          if [ -f data/tournament_surface_speed_external.csv ]; then
+            git add data/tournament_surface_speed_external.csv
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No deployable artifact changes to commit"
+            exit 0
+          fi
+
+          git commit -m "Daily ATP production refresh"
+
+          # Raw download/cache files may have changed but are intentionally not
+          # deployed. Stash those before rebasing the generated artifact commit.
+          git stash push --include-untracked -m "workflow-temp" || true
+          git pull --rebase origin main
+          git push origin main
