@@ -128,6 +128,27 @@ class MatchstatClient:
             page += 1
         return rows[:max_players]
 
+    def upcoming_events(self, tour: str = "atp", max_events: int = 80) -> list[dict]:
+        """Return upcoming events from Matchstat's Live/Extend API, paginated."""
+        rows: list[dict] = []
+        page = 1
+        while len(rows) < max_events:
+            payload = self.get(
+                f"/tennis/v2/extend/api/events/upcoming/{tour}",
+                params={"page": page, "limit": min(50, max_events - len(rows))},
+            )
+            batch = _payload_rows(payload)
+            if not batch:
+                break
+            rows.extend(batch)
+            pagination = payload.get("pagination", {}) if isinstance(payload, dict) else {}
+            if not bool(pagination.get("hasNext")):
+                break
+            page += 1
+            if page > 10:
+                break
+        return rows[:max_events]
+
     def event_information(self, player1: str, player2: str, date_only: str) -> dict:
         return self.get(
             f"/tennis/v2/extend/api/event/get/{player1}/{player2}/{date_only}"
