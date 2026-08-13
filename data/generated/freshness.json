@@ -1,0 +1,476 @@
+{
+  "updated_at_utc": "2026-08-13T05:37:44.306111+00:00",
+  "pipeline_version": "4.0-matchstat",
+  "matches": {
+    "years": {
+      "2000": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2001": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2002": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2003": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2004": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2005": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2006": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2007": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2008": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2009": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2010": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2011": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2012": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2013": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2014": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2015": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2016": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2017": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2018": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2019": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "file unavailable",
+          "valid": false
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": null
+      },
+      "2020": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "2020.csv not found in live index; using cache if available",
+          "valid": true,
+          "rows": 1466,
+          "latest_tourney_date": "20201116",
+          "columns": 51
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": "20201116"
+      },
+      "2021": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "2021.csv not found in live index; using cache if available",
+          "valid": true,
+          "rows": 2735,
+          "latest_tourney_date": "20211205",
+          "columns": 51
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": "20211205"
+      },
+      "2022": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "2022.csv not found in live index; using cache if available",
+          "valid": true,
+          "rows": 2918,
+          "latest_tourney_date": "20221127",
+          "columns": 51
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": "20221127"
+      },
+      "2023": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "2023.csv not found in live index; using cache if available",
+          "valid": true,
+          "rows": 2942,
+          "latest_tourney_date": "20231127",
+          "columns": 51
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": "20231127"
+      },
+      "2024": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "2024.csv not found in live index; using cache if available",
+          "valid": true,
+          "rows": 3076,
+          "latest_tourney_date": "20241218",
+          "columns": 51
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": "20241218"
+      },
+      "2025": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "2025.csv not found in live index; using cache if available",
+          "valid": true,
+          "rows": 2944,
+          "latest_tourney_date": "20251222",
+          "columns": 51
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": "20251222"
+      },
+      "2026": {
+        "tennis_my_life": {
+          "ok": false,
+          "error": "2026.csv not found in live index; using cache if available",
+          "valid": true,
+          "rows": 136,
+          "latest_tourney_date": "20260117",
+          "columns": 51
+        },
+        "jeff_sackmann": {
+          "ok": false,
+          "skipped": true,
+          "reason": "JEFF_ATP_BASE_URL is not configured.",
+          "rows": 0
+        },
+        "latest_tourney_date": "20260117"
+      }
+    },
+    "sources": {
+      "TennisMyLife": {
+        "available": true,
+        "successful_years": 7,
+        "failed_years": 20
+      },
+      "Jeff Sackmann": {
+        "available": false,
+        "successful_years": 0,
+        "failed_years": 0,
+        "note": "Disabled because the public repository currently returns 404. Set JEFF_ATP_BASE_URL to re-enable it."
+      }
+    },
+    "master_rows": 16207,
+    "current_year_rows": 136,
+    "latest_tourney_date": "20260117",
+    "age_days": 208,
+    "stale": true,
+    "freshness_threshold_days": 7,
+    "raw_rows_by_source": {
+      "TennisMyLife": 16217
+    },
+    "selected_rows_by_source": {
+      "TennisMyLife": 16207
+    },
+    "duplicates_removed": 10,
+    "matchstat": {
+      "ok": false,
+      "skipped": true,
+      "reason": "MATCHSTAT_API_KEY is not configured"
+    },
+    "output": "data/generated/master_matches.csv.gz"
+  },
+  "reference": {
+    "rankings": {
+      "ok": true,
+      "method": "latest observed ranking in match data",
+      "warning": "This is a fallback and may lag the official weekly ATP ranking.",
+      "ranking_date": "20260117",
+      "players": 751,
+      "external_url_configured": false,
+      "official_atp_attempt": {
+        "ok": false,
+        "method": "official ATP singles rankings page",
+        "url": "https://www.atptour.com/en/rankings/singles",
+        "error": "HTTPSConnectionPool(host='www.atptour.com', port=443): Max retries exceeded with url: /en/rankings/singles?rankRange=0-5000&region=all (Caused by NameResolutionError(\"HTTPSConnection(host='www.atptour.com', port=443): Failed to resolve 'www.atptour.com' ([Errno -3] Temporary failure in name resolution)\"))"
+      }
+    }
+  },
+  "match_charting_project": {
+    "matches": {
+      "ok": false,
+      "url": "https://raw.githubusercontent.com/JeffSackmann/tennis_MatchChartingProject/master/charting-m-matches.csv",
+      "error": "HTTPSConnectionPool(host='raw.githubusercontent.com', port=443): Max retries exceeded with url: /JeffSackmann/tennis_MatchChartingProject/master/charting-m-matches.csv (Caused by NameResolutionError(\"HTTPSConnection(host='raw.githubusercontent.com', port=443): Failed to resolve 'raw.githubusercontent.com' ([Errno -3] Temporary failure in name resolution)\"))",
+      "downloaded_at_utc": "2026-08-13T05:37:49.379779+00:00"
+    },
+    "overview": {
+      "ok": false,
+      "url": "https://raw.githubusercontent.com/JeffSackmann/tennis_MatchChartingProject/master/charting-m-stats-Overview.csv",
+      "error": "HTTPSConnectionPool(host='raw.githubusercontent.com', port=443): Max retries exceeded with url: /JeffSackmann/tennis_MatchChartingProject/master/charting-m-stats-Overview.csv (Caused by NameResolutionError(\"HTTPSConnection(host='raw.githubusercontent.com', port=443): Failed to resolve 'raw.githubusercontent.com' ([Errno -3] Temporary failure in name resolution)\"))",
+      "downloaded_at_utc": "2026-08-13T05:37:49.382516+00:00"
+    },
+    "net_points": {
+      "ok": false,
+      "url": "https://raw.githubusercontent.com/JeffSackmann/tennis_MatchChartingProject/master/charting-m-stats-NetPoints.csv",
+      "error": "HTTPSConnectionPool(host='raw.githubusercontent.com', port=443): Max retries exceeded with url: /JeffSackmann/tennis_MatchChartingProject/master/charting-m-stats-NetPoints.csv (Caused by NameResolutionError(\"HTTPSConnection(host='raw.githubusercontent.com', port=443): Failed to resolve 'raw.githubusercontent.com' ([Errno -3] Temporary failure in name resolution)\"))",
+      "downloaded_at_utc": "2026-08-13T05:37:54.389363+00:00"
+    },
+    "available": false
+  }
+}
