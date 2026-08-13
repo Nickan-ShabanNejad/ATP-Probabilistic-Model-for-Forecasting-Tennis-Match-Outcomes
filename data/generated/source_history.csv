@@ -1,0 +1,10 @@
+updated_at_utc,latest_match_date,match_age_days,master_rows,current_year_rows,duplicates_removed,tml_rows_selected,jeff_rows_selected,charting_available,ranking_date,ranking_method,matchstat_ok,matchstat_rows
+2026-07-27T15:37:43.732064+00:00,20260117,191,77941,136,6,77941,0,True,20260117,latest observed ranking in match data,,
+2026-07-27T16:11:23.166319+00:00,20260117,191,77941,136,6,77941,0,True,20260117,latest observed ranking in match data,,
+2026-07-27T16:24:22.154283+00:00,20260719,8,79584,1779,7,79584,0,True,20260719,latest observed ranking in match data,,
+2026-07-27T22:24:46.270105+00:00,20260719,8,79584,1779,7,79584,0,True,20260719,latest observed ranking in match data,,
+2026-07-27T23:01:25.043138+00:00,20260719,8,79584,1779,7,79584,0,True,20260719,latest observed ranking in match data,,
+2026-07-28T11:29:41.431439+00:00,20260726,2,79638,1833,7,79638,0,True,20260726,latest observed ranking in match data,,
+2026-07-29T02:50:45.515398+00:00,20260726,3,79638,1833,7,79638,0,True,20260726,latest observed ranking in match data,,
+2026-07-29T02:58:22.191467+00:00,20260726,3,79638,1833,7,79638,0,True,20260726,latest observed ranking in match data,,
+2026-08-13T05:37:44.306111+00:00,20260117,208,16207,136,10,16207,0,False,20260117,latest observed ranking in match data,False,0.0
