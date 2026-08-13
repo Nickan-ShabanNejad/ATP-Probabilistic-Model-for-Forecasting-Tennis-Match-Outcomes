@@ -262,7 +262,8 @@ surface_ewma = defaultdict(lambda: {"serve": None, "return": None})
 history = defaultdict(lambda: deque(maxlen=80))
 elo_trail = defaultdict(lambda: deque(maxlen=10))
 h2h_history = defaultdict(lambda: deque(maxlen=40))
-MIN_H2H_PREDICTIVE_MATCHES = 4
+H2H_PRIOR_MATCHES = 6.0
+H2H_METRIC_PRIOR_MATCHES = 6.0
 last_seen = {}
 names = {}
 historical_ranks = {}
@@ -377,12 +378,10 @@ def h2h_state(pid_a, pid_b, surface):
     sa = sum(m["winner"] == str(pid_a) for m in surface_records)
     sb = sum(m["winner"] == str(pid_b) for m in surface_records)
 
-    predictive_overall = n >= MIN_H2H_PREDICTIVE_MATCHES
-    predictive_surface = sn >= MIN_H2H_PREDICTIVE_MATCHES
-    raw = ((a_wins - b_wins) / n) if predictive_overall else 0.0
-    sraw = ((sa - sb) / sn) if predictive_surface else 0.0
-    overall_edge = raw * n / (n + 4.0) if predictive_overall else 0.0
-    surface_edge = sraw * sn / (sn + 3.0) if predictive_surface else 0.0
+    # Continuous Bayesian-style shrinkage: every prior meeting can contribute,
+    # while small samples remain strongly pulled toward neutral.
+    overall_edge = ((a_wins - b_wins) / (n + H2H_PRIOR_MATCHES)) if n > 0 else 0.0
+    surface_edge = ((sa - sb) / (sn + H2H_PRIOR_MATCHES)) if sn > 0 else 0.0
 
     def matchup_diff(key, source=records):
         av = [m["stats"].get(str(pid_a), {}).get(key) for m in source]
@@ -392,9 +391,7 @@ def h2h_state(pid_a, pid_b, surface):
         if not av or not bv:
             return 0.0
         evidence = min(len(av), len(bv))
-        if evidence < MIN_H2H_PREDICTIVE_MATCHES:
-            return 0.0
-        return float((np.mean(av) - np.mean(bv)) * evidence / (evidence + 3.0))
+        return float((np.mean(av) - np.mean(bv)) * evidence / (evidence + H2H_METRIC_PRIOR_MATCHES))
 
     return {
         "h2h_overall_edge": float(overall_edge),
@@ -777,7 +774,7 @@ metrics = {
     "charting": chart_meta,
     "court_speed_rows": int(len(empirical_speeds)),
     "court_speed_source": prior_speed_source,
-    "pipeline_version": "4.0-matchstat-recent-form-h2h-speed",
+    "pipeline_version": "4.2-matchstat-continuous-h2h-speed",
 }
 
 # Refit selected family on all completed rows after honest model selection.
