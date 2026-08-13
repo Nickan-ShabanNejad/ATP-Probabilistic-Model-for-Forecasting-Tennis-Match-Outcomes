@@ -541,13 +541,25 @@ def refresh_matchstat_rankings() -> dict:
         if len(ranks) < 50:
             raise RuntimeError(f"only {len(ranks)} Matchstat ranking rows")
         ranks.to_csv(GENERATED / "current_rankings.csv", index=False)
-        return {
+        ranking_date = str(ranks["ranking_date"].iloc[0])
+        rank_dt = pd.to_datetime(ranking_date, format="%Y%m%d", errors="coerce")
+        rank_age = None
+        if pd.notna(rank_dt):
+            rank_age = max(0, int((pd.Timestamp.now(tz="UTC").tz_localize(None).normalize() - rank_dt.normalize()).days))
+        result = {
             "ok": True,
             "method": "Matchstat ATP singles rankings",
-            "ranking_date": str(ranks["ranking_date"].iloc[0]),
+            "ranking_date": ranking_date,
+            "ranking_age_days": rank_age,
             "players": int(len(ranks)),
             "mapped_to_player_id": int(ranks["player_id"].notna().sum()),
         }
+        if rank_age is not None and rank_age > 7:
+            result["warning"] = (
+                f"Matchstat's ranking snapshot is {rank_age} days old. Match data can still be current; "
+                "treat displayed rankings as stale until the provider publishes a newer weekly snapshot."
+            )
+        return result
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
 
