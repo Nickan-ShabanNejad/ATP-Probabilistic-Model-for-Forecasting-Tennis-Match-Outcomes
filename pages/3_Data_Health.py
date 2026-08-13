@@ -78,6 +78,12 @@ else:
 st.subheader("Rankings")
 st.write(f"Method: **{rankings.get('method', 'unavailable')}**")
 st.write(f"Ranking date: **{rankings.get('ranking_date', 'unknown')}**")
+rank_date = pd.to_datetime(str(rankings.get("ranking_date", "")), format="%Y%m%d", errors="coerce")
+if pd.notna(rank_date):
+    rank_age = max(0, int((pd.Timestamp.now(tz="UTC").tz_localize(None).normalize() - rank_date.normalize()).days))
+    st.write(f"Ranking age: **{rank_age} days**")
+    if rank_age > 7 and not rankings.get("warning"):
+        st.warning(f"The ranking snapshot is {rank_age} days old even though match data may be current.")
 if rankings.get("warning"):
     st.warning(rankings["warning"])
 
