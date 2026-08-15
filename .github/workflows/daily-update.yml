@@ -79,7 +79,14 @@ jobs:
 
           assert len(state) > 100
           assert len(master) > 1000
-          assert state["overall_elo"].notna().all()
+          missing_elo = state[state["overall_elo"].isna()]
+
+          if not missing_elo.empty:
+            print("\nPLAYERS WITH MISSING OVERALL ELO:")
+            print(missing_elo.to_string(index=False))
+            raise AssertionError(
+            f"{len(missing_elo)} player(s) have missing overall_elo"
+            )
           assert freshness["matches"]["current_year_rows"] > 0
           assert freshness["matches"].get("matchstat", {}).get("ok") is True
           assert freshness["reference"]["rankings"].get("method") == "Matchstat ATP singles rankings"
