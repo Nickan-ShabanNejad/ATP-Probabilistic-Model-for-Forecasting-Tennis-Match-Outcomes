@@ -90,7 +90,12 @@ jobs:
           assert freshness["matches"]["current_year_rows"] > 0
           assert freshness["matches"].get("matchstat", {}).get("ok") is True
           assert freshness["reference"]["rankings"].get("method") == "Matchstat ATP singles rankings"
-          assert metrics.get("pipeline_version") == "4.0-matchstat-recent-form-h2h-speed"
+          actual_pipeline_version = metrics.get("pipeline_version")
+          print("Pipeline version found:", repr(actual_pipeline_version))
+
+          assert actual_pipeline_version == "4.0-matchstat-recent-form-h2h-speed", (
+            f"Unexpected pipeline version: {actual_pipeline_version!r}"
+          )
           assert metrics.get("selected_model") in {"logistic_regression", "hist_gradient_boosting"}
           assert 0.0 < metrics["accuracy"] < 0.90
           assert metrics["log_loss"] > 0.05
