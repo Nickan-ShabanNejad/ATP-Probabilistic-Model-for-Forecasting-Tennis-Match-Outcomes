@@ -93,7 +93,7 @@ jobs:
           actual_pipeline_version = metrics.get("pipeline_version")
           print("Pipeline version found:", repr(actual_pipeline_version))
 
-          assert actual_pipeline_version == "4.2-matchstat-recent-form-h2h-speed", (
+          assert actual_pipeline_version == "4.2-matchstat-continuous-form-h2h-speed", (
             f"Unexpected pipeline version: {actual_pipeline_version!r}"
           )
           assert metrics.get("selected_model") in {"logistic_regression", "hist_gradient_boosting"}
