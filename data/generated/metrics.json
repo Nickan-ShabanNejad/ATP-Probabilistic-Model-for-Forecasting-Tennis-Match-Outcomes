@@ -7,25 +7,25 @@
   "candidate_metrics": {
     "logistic_regression": {
       "accuracy": 0.6542397660818714,
-      "log_loss": 0.6124484682571082,
-      "brier": 0.21313163845150057,
-      "roc_auc": 0.719282767612859,
-      "ece_10bin": 0.022189811744882916
+      "log_loss": 0.612106823081962,
+      "brier": 0.21305907776134345,
+      "roc_auc": 0.7192084900820793,
+      "ece_10bin": 0.02081097426729693
     },
     "hist_gradient_boosting": {
-      "accuracy": 0.6509502923976608,
-      "log_loss": 0.610853917277173,
-      "brier": 0.21221522041549845,
-      "roc_auc": 0.7221656976744186,
-      "ece_10bin": 0.026005981414955748
+      "accuracy": 0.6513157894736842,
+      "log_loss": 0.6109132772172917,
+      "brier": 0.21225593262319498,
+      "roc_auc": 0.7221689038987689,
+      "ece_10bin": 0.028047975584123596
     }
   },
-  "accuracy": 0.6509502923976608,
-  "log_loss": 0.610853917277173,
-  "brier": 0.21221522041549845,
-  "roc_auc": 0.7221656976744186,
-  "ece_10bin": 0.026005981414955748,
-  "latest_data_date": "2026-08-13",
+  "accuracy": 0.6513157894736842,
+  "log_loss": 0.6109132772172917,
+  "brier": 0.21225593262319498,
+  "roc_auc": 0.7221689038987689,
+  "ece_10bin": 0.028047975584123596,
+  "latest_data_date": "2026-08-15",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -149,7 +149,7 @@
     "players": 1002,
     "rows": 56850
   },
-  "court_speed_rows": 2047,
+  "court_speed_rows": 2048,
   "court_speed_source": "legacy/empirical surface-speed table",
-  "pipeline_version": "4.0-matchstat-recent-form-h2h-speed"
+  "pipeline_version": "4.2-matchstat-continuous-h2h-speed"
 }
