@@ -25,7 +25,7 @@
   "brier": 0.21225593262319498,
   "roc_auc": 0.7221689038987689,
   "ece_10bin": 0.028047975584123596,
-  "latest_data_date": "2026-08-24",
+  "latest_data_date": "2026-08-25",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -149,7 +149,7 @@
     "players": 1002,
     "rows": 56850
   },
-  "court_speed_rows": 2050,
+  "court_speed_rows": 2053,
   "court_speed_source": "legacy/empirical surface-speed table",
   "pipeline_version": "4.2-matchstat-continuous-h2h-speed"
 }
