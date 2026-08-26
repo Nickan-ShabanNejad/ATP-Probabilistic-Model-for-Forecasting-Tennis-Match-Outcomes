@@ -25,7 +25,7 @@
   "brier": 0.21225593262319498,
   "roc_auc": 0.7221689038987689,
   "ece_10bin": 0.028047975584123596,
-  "latest_data_date": "2026-08-25",
+  "latest_data_date": "2026-08-26",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
