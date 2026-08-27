@@ -7,10 +7,10 @@
   "candidate_metrics": {
     "logistic_regression": {
       "accuracy": 0.6542397660818714,
-      "log_loss": 0.612106823081962,
-      "brier": 0.21305907776134345,
+      "log_loss": 0.6121068229346526,
+      "brier": 0.21305907770863736,
       "roc_auc": 0.7192084900820793,
-      "ece_10bin": 0.02081097426729693
+      "ece_10bin": 0.020810974282492494
     },
     "hist_gradient_boosting": {
       "accuracy": 0.6513157894736842,
@@ -25,7 +25,7 @@
   "brier": 0.21225593262319498,
   "roc_auc": 0.7221689038987689,
   "ece_10bin": 0.028047975584123596,
-  "latest_data_date": "2026-08-26",
+  "latest_data_date": "2026-08-27",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
