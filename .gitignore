@@ -1,0 +1,9 @@
+# Local/private betting log. Keep a CSV backup from the Tracking page.
+data/tracking/*
+!data/tracking/.gitkeep
+
+# Python/runtime noise
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
