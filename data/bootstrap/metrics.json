@@ -1,0 +1,10 @@
+[
+  {
+    "training_matches":12800,
+    "test_matches_2025":2737,
+    "accuracy_2025":0.6488856412,
+    "log_loss_2025":0.6163202763,
+    "brier_2025":0.2147883071,
+    "latest_data_date":"2026-01-17"
+  }
+]
