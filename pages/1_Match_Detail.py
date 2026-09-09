@@ -122,7 +122,7 @@ if actual_ml_bet:
             track_oa,
             track_ob,
             float(row.get("ML stake CA$", 0)),
-            notes=f"Event {eid}; automated v0.3.1 board",
+            notes=f"Event {eid}; automated v0.3.2 board",
         )
         st.success(f"Saved tracking row #{pid}.")
 
@@ -138,16 +138,16 @@ with st.expander("Why does the model lean this way?", expanded=True):
         reason_rows.append(
             {
                 "Factor": name,
-                f"Impact on {explained}": adj,
+                f"Matchup impact on {explained}": adj,
                 "Direction": "Helps" if adj > 0 else ("Hurts" if adj < 0 else "Neutral"),
             }
         )
     if reason_rows:
         reason_df = pd.DataFrame(reason_rows).sort_values(
-            f"Impact on {explained}", key=lambda x: x.abs(), ascending=False
+            f"Matchup impact on {explained}", key=lambda x: x.abs(), ascending=False
         )
         st.dataframe(
-            reason_df.style.format({f"Impact on {explained}": "{:+.2%}"}),
+            reason_df.style.format({f"Matchup impact on {explained}": "{:+.2%}"}),
             hide_index=True,
             use_container_width=True,
         )
@@ -286,15 +286,58 @@ with st.expander("Court-speed analysis", expanded=True):
         f"{result['probability_a'] - neutral:+.2%}",
     )
 
-with st.expander("Grand Slam O/U 3.5 sets"):
+with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
     if not sets or not sets.get("available"):
         st.info("The O/U 3.5 sets model is shown only for BO5 Grand Slam matches with the required model artifact.")
     else:
+        has_sets_price = bool(sets.get("odds_over35") and sets.get("odds_under35"))
+
+        # Always show the model's probabilities AND fair prices, even if the market
+        # quote has not opened yet.  This makes the totals model useful on its own.
         s1, s2, s3, s4 = st.columns(4)
         s1.metric("Model P(Over 3.5)", f"{sets['probability_over35']:.1%}")
-        s2.metric("Model P(Under 3.5)", f"{sets['probability_under35']:.1%}")
-        s3.metric("Pinnacle Over", f"{sets.get('odds_over35'):.3f}" if sets.get("odds_over35") else "Not exposed")
-        s4.metric("Pinnacle Under", f"{sets.get('odds_under35'):.3f}" if sets.get("odds_under35") else "Not exposed")
+        s2.metric("Model fair odds — Over", f"{sets['fair_odds_over35']:.2f}")
+        s3.metric("Model P(Under 3.5)", f"{sets['probability_under35']:.1%}")
+        s4.metric("Model fair odds — Under", f"{sets['fair_odds_under35']:.2f}")
+
+        if has_sets_price:
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Pinnacle Over 3.5", f"{sets['odds_over35']:.3f}")
+            m2.metric("Pinnacle Under 3.5", f"{sets['odds_under35']:.3f}")
+            m3.metric("No-vig P(Over)", f"{sets.get('market_probability_over35', 0):.1%}")
+            m4.metric("No-vig P(Under)", f"{sets.get('market_probability_under35', 0):.1%}")
+
+            v1, v2, v3, v4 = st.columns(4)
+            v1.metric("Over edge", f"{sets.get('edge_over35', 0):+.1%}")
+            v2.metric("Over EV", f"{sets.get('ev_over35', 0):+.1%}")
+            v3.metric("Under edge", f"{sets.get('edge_under35', 0):+.1%}")
+            v4.metric("Under EV", f"{sets.get('ev_under35', 0):+.1%}")
+
+            k1, k2 = st.columns(2)
+            k1.metric("Quarter-Kelly — Over", f"{sets.get('quarter_kelly_over35', 0):.2%}")
+            k2.metric("Quarter-Kelly — Under", f"{sets.get('quarter_kelly_under35', 0):.2%}")
+
+            if sets.get("recommended_market") != "No bet":
+                stake = (current_bankroll() or 0) * float(sets.get("recommended_quarter_kelly", 0))
+                st.success(
+                    f"**{sets['recommended_market']}** · EV {sets.get('recommended_ev', 0):+.1%} · "
+                    f"edge {sets.get('recommended_edge', 0):+.1%} · quarter-Kelly "
+                    f"{sets.get('recommended_quarter_kelly', 0):.2%} · CA${stake:,.2f}"
+                )
+            else:
+                st.info("**NO O/U 3.5 BET** at the current Pinnacle prices.")
+
+            if quote.get("sets35_source"):
+                st.caption(f"Total Sets price source: {quote.get('sets35_source')}")
+        else:
+            st.warning(
+                "The O/U model is working, but a Pinnacle **Total Sets 3.5** price has not been found yet, "
+                "so EV, edge, Kelly and stake cannot be calculated. v0.3.2 checks both Pinnodds standard "
+                "tennis totals and Pinnacle special-market rows rather than relying on Matchstat for this market."
+            )
+            if quote.get("sets35_error"):
+                st.caption(f"Pinnacle Total Sets diagnostic: {quote.get('sets35_error')}")
+
         p = sets["profiles"]
         prof = pd.DataFrame(
             [
@@ -307,12 +350,21 @@ with st.expander("Grand Slam O/U 3.5 sets"):
             hide_index=True,
             use_container_width=True,
         )
-        if sets.get("recommended_market") != "No bet":
-            stake = (current_bankroll() or 0) * float(sets.get("recommended_quarter_kelly", 0))
-            st.success(
-                f"**{sets['recommended_market']}** · EV {sets.get('recommended_ev', 0):+.1%} · "
-                f"edge {sets.get('recommended_edge', 0):+.1%} · quarter-Kelly {sets.get('recommended_quarter_kelly', 0):.2%} · CA${stake:,.2f}"
-            )
+
+        # Explain what the totals model is seeing without pretending these are
+        # independent additive effects.
+        t1, t2, t3, t4 = st.columns(4)
+        avg_gs = (p["player_a_gs"]["over35_rate"] + p["player_b_gs"]["over35_rate"]) / 2
+        avg_event = (p["player_a_event"]["over35_rate"] + p["player_b_event"]["over35_rate"]) / 2
+        avg_five = (p["player_a_gs"]["five_set_rate"] + p["player_b_gs"]["five_set_rate"]) / 2
+        t1.metric("Pair GS O3.5 tendency", f"{avg_gs:.1%}")
+        t2.metric("Pair event O3.5 tendency", f"{avg_event:.1%}")
+        t3.metric("Pair five-set tendency", f"{avg_five:.1%}")
+        t4.metric("Elo closeness", f"{float(p.get('elo_closeness', 0)):.1%}")
+        st.caption(
+            "These historical rates are inputs to the separate match-length model. The final O/U probability also "
+            "uses Elo closeness, serve/return profile, court speed, surface and sample-size information."
+        )
 
 with st.expander("Market / CLV diagnostics"):
     if has_ml:
