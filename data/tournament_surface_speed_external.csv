@@ -1,0 +1,24 @@
+season,tournament,tournament_key,surface,surface_speed,matches_used,source_label
+2025,Australian Open,australian melbourne,Hard,1.20,0,CourtSpeed medium-fast
+2025,Indian Wells,indian wells,Hard,0.85,0,CourtSpeed medium-slow
+2025,Miami,miami,Hard,1.20,0,CourtSpeed medium-fast
+2025,Monte Carlo,monte carlo,Clay,0.70,0,CourtSpeed slow
+2025,Madrid,madrid,Clay,1.00,0,CourtSpeed medium
+2025,Rome,rome,Clay,0.70,0,CourtSpeed slow
+2025,Roland Garros,french paris,Clay,0.70,0,CourtSpeed slow
+2025,Wimbledon,wimbledon,Grass,1.20,0,CourtSpeed medium-fast
+2025,Canadian Open,canadian,Hard,1.40,0,CourtSpeed fast
+2025,Cincinnati,cincinnati,Hard,1.40,0,CourtSpeed fast
+2025,US Open,us new york,Hard,1.20,0,CourtSpeed medium-fast
+2025,Shanghai,shanghai,Hard,1.20,0,CourtSpeed medium-fast
+2025,Paris Masters,paris,Hard,1.20,0,CourtSpeed medium-fast
+2025,ATP Finals,finals,Hard,1.40,0,CourtSpeed fast
+2026,Australian Open,australian melbourne,Hard,1.20,0,CourtSpeed medium-fast
+2026,Indian Wells,indian wells,Hard,1.20,0,CourtSpeed medium-fast
+2026,Miami,miami,Hard,1.20,0,CourtSpeed medium-fast
+2026,Monte Carlo,monte carlo,Clay,0.70,0,CourtSpeed slow
+2026,Madrid,madrid,Clay,1.20,0,CourtSpeed medium-fast
+2026,Rome,rome,Clay,0.70,0,CourtSpeed slow
+2026,Wimbledon,wimbledon,Grass,1.40,0,CourtSpeed fast
+2026,Canadian Open,canadian,Hard,1.00,0,CourtSpeed medium
+2026,Cincinnati,cincinnati,Hard,1.20,0,CourtSpeed medium-fast
