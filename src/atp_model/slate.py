@@ -20,6 +20,196 @@ from .tournament_features import canonical_tournament, encode_tournament_level
 _ODDS_CACHE: dict[str, dict[str, Any]] = {}
 
 
+def _pinnodds_same_player(left: str, right: str) -> bool:
+    a, b = normalize_name(left), normalize_name(right)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    ap, bp = a.split(), b.split()
+    return len(ap) >= 2 and len(bp) >= 2 and ap[-1] == bp[-1] and ap[0][0] == bp[0][0]
+
+
+def _pinnodds_event_ts(row: dict) -> float | None:
+    raw = row.get("starts") or row.get("start_ts")
+    if raw is None:
+        return None
+    try:
+        if isinstance(raw, (int, float)):
+            value = float(raw)
+            return value / 1000.0 if value > 10_000_000_000 else value
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).astimezone(timezone.utc).timestamp()
+    except Exception:
+        return None
+
+
+def _pinnodds_match_fixture(events: list[dict], player_a: str, player_b: str, start_timestamp: float | None):
+    best = None
+    for row in events or []:
+        if not isinstance(row, dict):
+            continue
+        home = str(row.get("home") or "").strip()
+        away = str(row.get("away") or "").strip()
+        if not ((_pinnodds_same_player(home, player_a) and _pinnodds_same_player(away, player_b))
+                or (_pinnodds_same_player(home, player_b) and _pinnodds_same_player(away, player_a))):
+            continue
+        event_ts = _pinnodds_event_ts(row)
+        if start_timestamp and event_ts:
+            delta = abs(float(event_ts) - float(start_timestamp))
+            if delta > 36 * 3600:
+                continue
+        else:
+            delta = 0.0
+        if best is None or delta < best[0]:
+            best = (delta, row)
+    return None if best is None else best[1]
+
+
+def _pinnodds_total35_from_periods(payload: Any) -> tuple[float, float] | None:
+    rows = payload.get("events") if isinstance(payload, dict) else None
+    if not isinstance(rows, list):
+        rows = [payload] if isinstance(payload, dict) else []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        periods = row.get("periods") or {}
+        game = periods.get("num_0") if isinstance(periods, dict) else None
+        totals = game.get("totals") if isinstance(game, dict) else None
+        if not isinstance(totals, dict):
+            continue
+        candidates = []
+        if "3.5" in totals:
+            candidates.append(totals.get("3.5"))
+        for value in totals.values():
+            if isinstance(value, dict):
+                try:
+                    if abs(float(value.get("points")) - 3.5) < 1e-9:
+                        candidates.append(value)
+                except Exception:
+                    pass
+        for value in candidates:
+            if not isinstance(value, dict):
+                continue
+            try:
+                over, under = float(value.get("over")), float(value.get("under"))
+            except Exception:
+                continue
+            if over > 1.0 and under > 1.0:
+                return over, under
+    return None
+
+
+def _pinnodds_total35_from_special_tree(payload: Any) -> tuple[float, float] | None:
+    found: dict[str, float] = {}
+
+    def walk(node: Any, inherited: str = "") -> None:
+        if len(found) == 2:
+            return
+        if isinstance(node, list):
+            for item in node:
+                walk(item, inherited)
+            return
+        if not isinstance(node, dict):
+            return
+        here = " ".join(str(node.get(k) or "") for k in (
+            "special", "special_category", "special_units", "type", "key",
+            "side", "name", "description", "market", "market_name",
+        )).casefold()
+        context = (inherited + " " + here).strip()
+        is_set_context = "set" in context
+        prices = node.get("prices")
+        if is_set_context and isinstance(prices, list):
+            for price_row in prices:
+                if not isinstance(price_row, dict):
+                    continue
+                label = str(price_row.get("name") or price_row.get("side") or "").casefold()
+                try:
+                    points = float(price_row.get("points")) if price_row.get("points") not in (None, "") else None
+                except Exception:
+                    points = None
+                if not ((points is not None and abs(points - 3.5) < 1e-9) or "3.5" in context or "3.5" in label):
+                    continue
+                try:
+                    price = float(price_row.get("price"))
+                except Exception:
+                    continue
+                if price <= 1.0:
+                    continue
+                if "over" in label or label in {"o", "over 3.5"}:
+                    found["over"] = price
+                elif "under" in label or label in {"u", "under 3.5"}:
+                    found["under"] = price
+        if is_set_context:
+            try:
+                points = float(node.get("points")) if node.get("points") not in (None, "") else None
+            except Exception:
+                points = None
+            if (points is not None and abs(points - 3.5) < 1e-9) or "3.5" in context:
+                for side in ("over", "under"):
+                    try:
+                        price = float(node.get(side))
+                    except Exception:
+                        continue
+                    if price > 1.0:
+                        found[side] = price
+        for key, value in node.items():
+            if key == "prices":
+                continue
+            if isinstance(value, (dict, list)):
+                walk(value, context)
+
+    walk(payload)
+    if "over" in found and "under" in found:
+        return float(found["over"]), float(found["under"])
+    return None
+
+
+def _compat_find_total_sets_35(self, player_a: str, player_b: str, start_timestamp: float | None = None, *, force: bool = False):
+    """Compatibility shim so v0.3.2 works even if Streamlit still has the v0.3.1 PinnOddsClient loaded."""
+    try:
+        events = self.prematch_events(force=force)
+        row = _pinnodds_match_fixture(events, player_a, player_b, start_timestamp)
+        if row is None:
+            self.last_total35_error = "Pinnodds fixture not matched"
+            return None
+        event_id = row.get("event_id") or row.get("id")
+        if event_id is None:
+            self.last_total35_error = "Pinnodds fixture has no event_id"
+            return None
+        for path, params in (
+            ("/kit/v1/prematch/lines", {"event_id": event_id, "market_type": "totals"}),
+            ("/kit/v1/prematch/markets", {"event_id": event_id}),
+        ):
+            payload = self._get(path, params=params)
+            pair = _pinnodds_total35_from_periods(payload) or _pinnodds_total35_from_special_tree(payload)
+            if pair:
+                self.last_total35_error = None
+                return {"sets35": pair, "source": "pinnodds-total-sets", "provider_event_id": str(event_id)}
+        special_payload = self._get(
+            "/kit/v1/prematch/fixtures",
+            params={"sport_id": 2, "include_specials": "nested"},
+        )
+        special_events = [x for x in (special_payload.get("events") or []) if isinstance(x, dict)]
+        special_parent = _pinnodds_match_fixture(special_events, player_a, player_b, start_timestamp)
+        if special_parent is not None:
+            pair = _pinnodds_total35_from_special_tree(special_parent.get("specials") or special_parent)
+            if pair:
+                self.last_total35_error = None
+                return {"sets35": pair, "source": "pinnodds-total-sets-special", "provider_event_id": str(event_id)}
+        self.last_total35_error = "Pinnacle Total Sets 3.5 is not currently offered in the Pinnodds payload"
+        return None
+    except Exception as exc:
+        self.last_total35_error = str(exc)
+        return None
+
+
+# Streamlit can occasionally keep the previous class definition alive across a hot reload.
+# Patch the class at import time so the totals feature still works even in that case.
+if not hasattr(PinnOddsClient, "find_total_sets_35"):
+    PinnOddsClient.find_total_sets_35 = _compat_find_total_sets_35  # type: ignore[attr-defined]
+
+
+
 def tournament_context(master_path) -> dict[str, dict]:
     try:
         matches = pd.read_csv(
