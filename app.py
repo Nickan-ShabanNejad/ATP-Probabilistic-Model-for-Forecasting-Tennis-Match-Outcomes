@@ -17,8 +17,8 @@ from atp_model.model_service import load_bundle, load_state
 from atp_model.slate import build_slate, eligible_events, tournament_context
 from atp_model.tracking import current_bankroll, get_starting_bankroll
 
-st.set_page_config(page_title="ATP v0.3.1 Live Betting Board", page_icon="🎾", layout="wide")
-st.title("🎾 ATP v0.3.1 — Live Value Board")
+st.set_page_config(page_title="ATP v0.3.2 Live Betting Board", page_icon="🎾", layout="wide")
+st.title("🎾 ATP v0.3.2 — Live Value Board")
 st.caption(
     "Automated ATP 250 / 500 / Masters 1000 / ATP Finals / Grand Slam slate · Pinnacle prices · "
     "model probabilities · EV · quarter-Kelly · bankroll stakes · click any match for the full breakdown."
