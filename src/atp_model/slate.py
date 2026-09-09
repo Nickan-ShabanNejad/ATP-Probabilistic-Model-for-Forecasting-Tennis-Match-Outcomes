@@ -163,6 +163,11 @@ def _event_odds(client: MatchstatClient, event: dict, pinnacle_client: PinnOddsC
     # Preferred sharp-price source: direct Pinnacle-only prematch feed. Matchstat
     # remains the schedule/stats API, but it does not expose Pinnacle for every ATP
     # event. One board-level Pinnodds snapshot is cached and matched by players/time.
+    direct_sets = None
+    direct_sets_source = None
+    direct_sets_error = None
+    ctx = event.get("_ctx") or {}
+    wants_sets35 = float(ctx.get("level", 0) or 0) >= 5.0 and float(ctx.get("best_of", 0) or 0) >= 5.0
     if pinnacle_client is not None and pinnacle_client.enabled:
         try:
             direct = pinnacle_client.find_moneyline(
@@ -176,11 +181,31 @@ def _event_odds(client: MatchstatClient, event: dict, pinnacle_client: PinnOddsC
             direct_error = str(exc)
         else:
             direct_error = None
+
+        if wants_sets35:
+            try:
+                direct_sets_quote = pinnacle_client.find_total_sets_35(
+                    str(event.get("participant1") or ""),
+                    str(event.get("participant2") or ""),
+                    start_timestamp=start or None,
+                    force=force,
+                )
+            except Exception as exc:
+                direct_sets_quote = None
+                direct_sets_error = str(exc)
+            else:
+                direct_sets_error = pinnacle_client.last_total35_error
+            if direct_sets_quote and direct_sets_quote.get("sets35"):
+                direct_sets = direct_sets_quote["sets35"]
+                direct_sets_source = direct_sets_quote.get("source", "pinnodds-total-sets")
+
         if direct and direct.get("moneyline"):
             out = {
                 "fetched_at": now,
                 "moneyline": direct["moneyline"],
-                "sets35": None,
+                "sets35": direct_sets,
+                "sets35_source": direct_sets_source,
+                "sets35_error": direct_sets_error,
                 "error": None,
                 "source": direct.get("source", "pinnodds-prematch"),
                 "available_bookmakers": ["Pinnacle"],
@@ -243,6 +268,11 @@ def _event_odds(client: MatchstatClient, event: dict, pinnacle_client: PinnOddsC
         }
 
     result = fetch_for_id(eid)
+    if result.get("sets35") is None and direct_sets is not None:
+        result["sets35"] = direct_sets
+        result["sets35_source"] = direct_sets_source
+    if result.get("sets35") is None and direct_sets_error:
+        result["sets35_error"] = direct_sets_error
     if result.get("moneyline") is None and direct_error:
         result["direct_pinnacle_error"] = direct_error
 
@@ -266,6 +296,11 @@ def _event_odds(client: MatchstatClient, event: dict, pinnacle_client: PinnOddsC
                         set(result.get("available_bookmakers", [])) | set(retry.get("available_bookmakers", [])),
                         key=str.casefold,
                     )
+                    if retry.get("sets35") is None and direct_sets is not None:
+                        retry["sets35"] = direct_sets
+                        retry["sets35_source"] = direct_sets_source
+                    if retry.get("sets35") is None and direct_sets_error:
+                        retry["sets35_error"] = direct_sets_error
                     if retry.get("moneyline") is not None or retry.get("available_bookmakers"):
                         result = retry
                     result["live_event_resolved"] = True
@@ -357,7 +392,7 @@ def build_slate(
             indoor=ctx["indoor"],
         )
 
-        if ml:
+        if ml or sets_quote:
             record_snapshot(
                 eid,
                 start,
