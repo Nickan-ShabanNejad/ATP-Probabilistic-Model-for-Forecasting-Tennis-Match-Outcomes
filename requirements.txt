@@ -1,7 +1,7 @@
 streamlit==1.49.1
 pandas==2.3.2
 numpy==2.3.2
-scikit-learn==1.7.1
+scikit-learn==1.8.0
 joblib==1.5.2
 SQLAlchemy==2.0.43
 psycopg[binary]==3.2.9
