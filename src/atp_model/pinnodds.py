@@ -44,7 +44,10 @@ class PinnOddsClient:
         self._session = requests.Session()
         self._cached_at = 0.0
         self._cached_events: list[dict] = []
+        self._cached_special_at = 0.0
+        self._cached_special_events: list[dict] = []
         self.last_error: str | None = None
+        self.last_total35_error: str | None = None
 
     @property
     def enabled(self) -> bool:
@@ -56,7 +59,11 @@ class PinnOddsClient:
         response = self._session.get(
             f"{self.base_url}{path}",
             params=params or {},
-            headers={"x-portal-apikey": self.api_key, "accept": "application/json"},
+            headers={
+                "x-portal-apikey": self.api_key,
+                "x-api-key": self.api_key,
+                "accept": "application/json",
+            },
             timeout=self.timeout_seconds,
         )
         response.raise_for_status()
@@ -84,6 +91,239 @@ class PinnOddsClient:
             if self._cached_events and now - self._cached_at < 300:
                 return self._cached_events
             raise
+
+
+    def prematch_events_with_specials(self, *, force: bool = False) -> list[dict]:
+        """Prematch tennis fixtures with specials nested under their parent match.
+
+        This is intentionally cached longer than the moneyline board because the
+        special-market catalogue is much larger.  Individual prices are still
+        refreshed from the single-event endpoints once a Total Sets market is found.
+        """
+        now = time.time()
+        if (
+            self._cached_special_events
+            and not force
+            and (now - self._cached_special_at) < max(120.0, self.cache_seconds)
+        ):
+            return self._cached_special_events
+        payload = self._get(
+            "/kit/v1/prematch/fixtures",
+            params={"sport_id": 2, "include_specials": "nested"},
+        )
+        events = payload.get("events") or []
+        events = [x for x in events if isinstance(x, dict)]
+        self._cached_special_events = events
+        self._cached_special_at = now
+        return events
+
+    @staticmethod
+    def _total35_from_periods(payload: Any) -> tuple[float, float] | None:
+        """Read a full-match 3.5 total when Pinnodds exposes it in periods.num_0.
+
+        On a BO5 tennis match a full-match 3.5 line cannot be a total-games line,
+        so a 3.5 full-match total is interpreted as Total Sets.
+        """
+        rows = payload.get("events") if isinstance(payload, dict) else None
+        if not isinstance(rows, list):
+            rows = [payload] if isinstance(payload, dict) else []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            periods = row.get("periods") or {}
+            game = periods.get("num_0") if isinstance(periods, dict) else None
+            if not isinstance(game, dict):
+                continue
+            totals = game.get("totals") or {}
+            if not isinstance(totals, dict):
+                continue
+            candidates = []
+            if "3.5" in totals:
+                candidates.append(totals.get("3.5"))
+            for value in totals.values():
+                if isinstance(value, dict):
+                    try:
+                        if abs(float(value.get("points")) - 3.5) < 1e-9:
+                            candidates.append(value)
+                    except Exception:
+                        pass
+            for value in candidates:
+                if not isinstance(value, dict):
+                    continue
+                try:
+                    over = float(value.get("over"))
+                    under = float(value.get("under"))
+                except Exception:
+                    continue
+                if over > 1.0 and under > 1.0:
+                    return over, under
+        return None
+
+    @staticmethod
+    def _total35_from_special_tree(payload: Any) -> tuple[float, float] | None:
+        """Find a Total Sets 3.5 special in nested/flat Pinnodds special payloads."""
+        found: dict[str, float] = {}
+
+        def walk(node: Any, inherited: str = "") -> None:
+            if len(found) == 2:
+                return
+            if isinstance(node, list):
+                for item in node:
+                    walk(item, inherited)
+                return
+            if not isinstance(node, dict):
+                return
+
+            here = " ".join(
+                str(node.get(k) or "")
+                for k in (
+                    "special", "special_category", "special_units", "type", "key",
+                    "side", "name", "description", "market", "market_name",
+                )
+            ).casefold()
+            context = (inherited + " " + here).strip()
+            is_set_context = "set" in context
+
+            prices = node.get("prices")
+            if is_set_context and isinstance(prices, list):
+                for price_row in prices:
+                    if not isinstance(price_row, dict):
+                        continue
+                    label = str(price_row.get("name") or price_row.get("side") or "").casefold()
+                    try:
+                        points = float(price_row.get("points")) if price_row.get("points") not in (None, "") else None
+                    except Exception:
+                        points = None
+                    has_35 = (points is not None and abs(points - 3.5) < 1e-9) or "3.5" in context or "3.5" in label
+                    if not has_35:
+                        continue
+                    try:
+                        price = float(price_row.get("price"))
+                    except Exception:
+                        continue
+                    if price <= 1.0:
+                        continue
+                    if "over" in label or label in {"o", "over 3.5"}:
+                        found["over"] = price
+                    elif "under" in label or label in {"u", "under 3.5"}:
+                        found["under"] = price
+
+            # Some providers put the line directly on a dict rather than prices[].
+            if is_set_context:
+                try:
+                    points = float(node.get("points")) if node.get("points") not in (None, "") else None
+                except Exception:
+                    points = None
+                if (points is not None and abs(points - 3.5) < 1e-9) or "3.5" in context:
+                    for side in ("over", "under"):
+                        try:
+                            price = float(node.get(side))
+                        except Exception:
+                            continue
+                        if price > 1.0:
+                            found[side] = price
+
+            for key, value in node.items():
+                if key == "prices":
+                    continue
+                if isinstance(value, (dict, list)):
+                    walk(value, context)
+
+        walk(payload)
+        if "over" in found and "under" in found:
+            return float(found["over"]), float(found["under"])
+        return None
+
+    def _find_fixture(
+        self,
+        player_a: str,
+        player_b: str,
+        start_timestamp: float | None,
+        events: list[dict],
+    ) -> tuple[dict, bool] | None:
+        best: tuple[float, dict, bool] | None = None
+        for row in events:
+            home = str(row.get("home") or "").strip()
+            away = str(row.get("away") or "").strip()
+            direct = _same_player(home, player_a) and _same_player(away, player_b)
+            reverse = _same_player(home, player_b) and _same_player(away, player_a)
+            if not (direct or reverse):
+                continue
+            event_ts = self._event_start_ts(row)
+            if start_timestamp and event_ts:
+                delta = abs(float(event_ts) - float(start_timestamp))
+                if delta > 36 * 3600:
+                    continue
+            else:
+                delta = 0.0
+            candidate = (delta, row, reverse)
+            if best is None or candidate[0] < best[0]:
+                best = candidate
+        if best is None:
+            return None
+        return best[1], best[2]
+
+    def find_total_sets_35(
+        self,
+        player_a: str,
+        player_b: str,
+        start_timestamp: float | None = None,
+        *,
+        force: bool = False,
+    ) -> dict | None:
+        """Return Pinnacle Over/Under 3.5 SETS for a BO5 tennis match when offered."""
+        try:
+            match = self._find_fixture(
+                player_a, player_b, start_timestamp, self.prematch_events(force=force)
+            )
+            if match is None:
+                self.last_total35_error = "Pinnodds fixture not matched"
+                return None
+            row, _reverse = match
+            event_id = row.get("event_id") or row.get("id")
+            if event_id is None:
+                self.last_total35_error = "Pinnodds fixture has no event_id"
+                return None
+
+            # First try the lightweight/full standard market payloads.
+            for path, params in (
+                ("/kit/v1/prematch/lines", {"event_id": event_id, "market_type": "totals"}),
+                ("/kit/v1/prematch/markets", {"event_id": event_id}),
+            ):
+                payload = self._get(path, params=params)
+                pair = self._total35_from_periods(payload) or self._total35_from_special_tree(payload)
+                if pair:
+                    self.last_total35_error = None
+                    return {
+                        "sets35": pair,
+                        "source": "pinnodds-total-sets",
+                        "provider_event_id": str(event_id),
+                    }
+
+            # Total Sets can also arrive as a Pinnacle special.  Request specials
+            # nested under each parent match, then inspect only this matched parent.
+            specials_match = self._find_fixture(
+                player_a,
+                player_b,
+                start_timestamp,
+                self.prematch_events_with_specials(force=force),
+            )
+            if specials_match is not None:
+                special_parent, _ = specials_match
+                pair = self._total35_from_special_tree(special_parent.get("specials") or special_parent)
+                if pair:
+                    self.last_total35_error = None
+                    return {
+                        "sets35": pair,
+                        "source": "pinnodds-total-sets-special",
+                        "provider_event_id": str(event_id),
+                    }
+
+            self.last_total35_error = "Pinnacle Total Sets 3.5 is not currently offered in the Pinnodds payload"
+            return None
+        except Exception as exc:
+            self.last_total35_error = str(exc)
+            return None
 
     @staticmethod
     def _event_start_ts(row: dict) -> float | None:
@@ -128,32 +368,12 @@ class PinnOddsClient:
         na, nb = normalize_name(player_a), normalize_name(player_b)
         if not na or not nb:
             return None
-        best: tuple[float, dict, bool] | None = None
-        for row in self.prematch_events(force=force):
-            home = str(row.get("home") or "").strip()
-            away = str(row.get("away") or "").strip()
-            direct = _same_player(home, player_a) and _same_player(away, player_b)
-            reverse = _same_player(home, player_b) and _same_player(away, player_a)
-            if not (direct or reverse):
-                continue
-            pair = self._moneyline(row)
-            if pair is None:
-                continue
-            event_ts = self._event_start_ts(row)
-            if start_timestamp and event_ts:
-                delta = abs(float(event_ts) - float(start_timestamp))
-                # Same players can meet more than once over a season; date/time is
-                # used as a strong disambiguator but provider timezone drift gets room.
-                if delta > 36 * 3600:
-                    continue
-            else:
-                delta = 0.0
-            candidate = (delta, row, reverse)
-            if best is None or candidate[0] < best[0]:
-                best = candidate
-        if best is None:
+        matched = self._find_fixture(player_a, player_b, start_timestamp, self.prematch_events(force=force))
+        if matched is None:
             return None
-        _, row, reverse = best
+        row, reverse = matched
+        if self._moneyline(row) is None:
+            return None
         home_odds, away_odds = self._moneyline(row)  # already validated above
         if reverse:
             odds_a, odds_b = away_odds, home_odds
