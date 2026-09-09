@@ -294,3 +294,34 @@ def test_pinnodds_tennis_fixture_matching_orients_quote():
     assert quote is not None
     assert quote["moneyline"] == (1.22, 4.50)
     assert quote["source"] == "pinnodds-prematch"
+
+
+def test_pinnodds_parses_full_match_total_sets_35():
+    from atp_model.pinnodds import PinnOddsClient
+
+    payload = {
+        "events": [{
+            "periods": {"num_0": {"totals": {
+                "3.5": {"points": 3.5, "over": 1.83, "under": 2.03}
+            }}}
+        }]
+    }
+    assert PinnOddsClient._total35_from_periods(payload) == (1.83, 2.03)
+
+
+def test_pinnodds_parses_total_sets_special_35():
+    from atp_model.pinnodds import PinnOddsClient
+
+    payload = {
+        "specials": [{
+            "special": "Total Sets",
+            "special_markets": {"num_0": [{
+                "type": "total",
+                "prices": [
+                    {"name": "Over", "points": 3.5, "price": 1.91},
+                    {"name": "Under", "points": 3.5, "price": 1.95},
+                ],
+            }]},
+        }]
+    }
+    assert PinnOddsClient._total35_from_special_tree(payload) == (1.91, 1.95)
