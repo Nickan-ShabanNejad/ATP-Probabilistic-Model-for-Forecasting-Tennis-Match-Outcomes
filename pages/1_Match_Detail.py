@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import sys
+import time
+import requests
 
 import numpy as np
 import pandas as pd
@@ -15,8 +17,238 @@ from atp_model.matchstat import MatchstatClient
 from atp_model.model_service import court_speed_curve, load_bundle, load_state
 from atp_model.tournament_features import court_speed_label
 from atp_model.tracking import current_bankroll, save_prediction
+from atp_model.sets_service import predict_over35
 
 st.set_page_config(page_title="ATP Match Detail", page_icon="🎾", layout="wide")
+
+
+# v0.3.2c: direct PinnOdds bridge for Grand Slam Total Sets 3.5.
+# This deliberately does not depend on PinnOddsClient.find_total_sets_35 so a stale
+# imported client class cannot disable the totals market on Streamlit Cloud.
+def _secret(name: str) -> str:
+    value = os.getenv(name, "").strip()
+    if value:
+        return value
+    try:
+        return str(st.secrets.get(name, "")).strip()
+    except Exception:
+        return ""
+
+
+def _norm_player(value: str) -> str:
+    import unicodedata, re as _re
+    s = unicodedata.normalize("NFKD", str(value or ""))
+    s = "".join(ch for ch in s if not unicodedata.combining(ch)).casefold()
+    s = _re.sub(r"[^a-z0-9]+", " ", s).strip()
+    return " ".join(s.split())
+
+
+def _same_player(left: str, right: str) -> bool:
+    a, b = _norm_player(left), _norm_player(right)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    ap, bp = a.split(), b.split()
+    return len(ap) >= 2 and len(bp) >= 2 and ap[-1] == bp[-1] and ap[0][0] == bp[0][0]
+
+
+def _event_timestamp(row: dict) -> float | None:
+    from datetime import datetime, timezone
+    raw = row.get("starts") or row.get("start_ts") or row.get("startTimestamp")
+    if raw in (None, ""):
+        return None
+    try:
+        if isinstance(raw, (int, float)):
+            value = float(raw)
+            return value / 1000.0 if value > 10_000_000_000 else value
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).astimezone(timezone.utc).timestamp()
+    except Exception:
+        return None
+
+
+def _match_fixture(events: list[dict], player_a: str, player_b: str, match_start: float | None) -> dict | None:
+    best = None
+    for row in events or []:
+        if not isinstance(row, dict):
+            continue
+        home = str(row.get("home") or row.get("participant1") or "").strip()
+        away = str(row.get("away") or row.get("participant2") or "").strip()
+        matches = ((_same_player(home, player_a) and _same_player(away, player_b)) or
+                   (_same_player(home, player_b) and _same_player(away, player_a)))
+        if not matches:
+            continue
+        ts = _event_timestamp(row)
+        delta = abs(ts - match_start) if ts and match_start else 0.0
+        if match_start and ts and delta > 36 * 3600:
+            continue
+        if best is None or delta < best[0]:
+            best = (delta, row)
+    return None if best is None else best[1]
+
+
+def _valid_price(value):
+    try:
+        v = float(value)
+        return v if v > 1.0 else None
+    except Exception:
+        return None
+
+
+def _parse_total35(payload, *, require_set_context: bool = False):
+    """Find an Over/Under 3.5 pair without mistaking unrelated props for sets."""
+    found = {}
+
+    def walk(node, path=""):
+        if isinstance(node, list):
+            for item in node:
+                walk(item, path)
+            return
+        if not isinstance(node, dict):
+            return
+
+        label_bits = [
+            node.get("special"), node.get("special_category"), node.get("name"),
+            node.get("description"), node.get("market"), node.get("market_name"),
+            node.get("type"), node.get("label"), path,
+        ]
+        context = " ".join(str(x or "") for x in label_bits).casefold()
+        set_context = any(token in context for token in ("total sets", "number of sets", "sets total", "match sets", " set ", "sets"))
+
+        # Standard PinnOdds periods.num_0.totals shape. On a BO5 tennis match a 3.5
+        # full-match total is the set-count market; game totals are normally ~30-50.
+        totals = node.get("totals")
+        if isinstance(totals, dict):
+            entry = totals.get("3.5") or totals.get(3.5)
+            if isinstance(entry, dict) and (set_context or not require_set_context):
+                over, under = _valid_price(entry.get("over")), _valid_price(entry.get("under"))
+                if over and under:
+                    return (over, under)
+            for key, entry in totals.items():
+                if not isinstance(entry, dict):
+                    continue
+                try:
+                    points = float(entry.get("points", key))
+                except Exception:
+                    continue
+                if abs(points - 3.5) < 1e-9 and (set_context or not require_set_context):
+                    over, under = _valid_price(entry.get("over")), _valid_price(entry.get("under"))
+                    if over and under:
+                        return (over, under)
+
+        # Special-market shape: prices: [{name: Over 3.5, price: ...}, ...]
+        prices = node.get("prices")
+        if isinstance(prices, list) and set_context:
+            local = {}
+            for item in prices:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("name") or item.get("label") or "").casefold()
+                price = _valid_price(item.get("price") or item.get("odds"))
+                if not price:
+                    continue
+                if "over" in name and ("3.5" in name or str(node.get("points") or "") == "3.5"):
+                    local["over"] = price
+                elif "under" in name and ("3.5" in name or str(node.get("points") or "") == "3.5"):
+                    local["under"] = price
+            if "over" in local and "under" in local:
+                return (local["over"], local["under"])
+
+        # Alternate object shape: {points:3.5, over:..., under:...}.
+        try:
+            points = float(node.get("points")) if node.get("points") not in (None, "") else None
+        except Exception:
+            points = None
+        if points is not None and abs(points - 3.5) < 1e-9 and set_context:
+            over, under = _valid_price(node.get("over")), _valid_price(node.get("under"))
+            if over and under:
+                return (over, under)
+
+        for key, value in node.items():
+            if isinstance(value, (dict, list)):
+                hit = walk(value, f"{path} {key}")
+                if hit:
+                    return hit
+        return None
+
+    return walk(payload)
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _direct_pinnodds_total35(player_a: str, player_b: str, match_start: float | None, cache_bucket: int):
+    key = _secret("PINNODDS_API_KEY")
+    if not key:
+        return None, None, "PINNODDS_API_KEY is not configured in Streamlit Secrets"
+    headers = {"x-portal-apikey": key, "x-api-key": key, "accept": "application/json"}
+    base = "https://pinnodds.com"
+    try:
+        r = requests.get(
+            base + "/kit/v1/prematch/fixtures",
+            params={"sport_id": 2, "include_specials": "nested"},
+            headers=headers, timeout=15,
+        )
+        if r.status_code != 200:
+            return None, None, f"PinnOdds fixtures returned HTTP {r.status_code}: {r.text[:180]}"
+        data = r.json()
+        events = data.get("events") or []
+        parent = _match_fixture(events, player_a, player_b, match_start)
+        if parent is None:
+            return None, None, "PinnOdds tennis fixture could not be matched to these players"
+
+        event_id = parent.get("event_id") or parent.get("id")
+        # First inspect the parent payload itself, including nested specials.
+        hit = _parse_total35(parent, require_set_context=False)
+        if hit:
+            return hit, "PinnOdds prematch fixture", None
+
+        # Ask for every normal market on the exact Pinnacle event.
+        if event_id is not None:
+            for endpoint, params in (
+                ("/kit/v1/prematch/lines", {"event_id": event_id, "market_type": "totals"}),
+                ("/kit/v1/prematch/markets", {"event_id": event_id}),
+            ):
+                rr = requests.get(base + endpoint, params=params, headers=headers, timeout=15)
+                if rr.status_code == 200:
+                    hit = _parse_total35(rr.json(), require_set_context=False)
+                    if hit:
+                        return hit, f"PinnOdds {endpoint.rsplit('/',1)[-1]}", None
+
+        # Some tennis set-count markets are specials. Pull flat specials so we can
+        # identify child event IDs linked to the match, then fetch each set-related row.
+        flat = requests.get(
+            base + "/kit/v1/prematch/fixtures",
+            params={"sport_id": 2, "include_specials": 1},
+            headers=headers, timeout=15,
+        )
+        if flat.status_code == 200 and event_id is not None:
+            children = []
+            for row in flat.json().get("events") or []:
+                if not isinstance(row, dict):
+                    continue
+                if str(row.get("parent_id") or "") != str(event_id):
+                    continue
+                label = " ".join(str(row.get(k) or "") for k in ("special", "special_category", "name", "description")).casefold()
+                if "set" in label:
+                    children.append(row)
+            for child in children:
+                hit = _parse_total35(child, require_set_context=True)
+                if hit:
+                    return hit, "PinnOdds nested set special", None
+                child_id = child.get("event_id") or child.get("id")
+                if child_id is None:
+                    continue
+                rr = requests.get(
+                    base + "/kit/v1/prematch/markets",
+                    params={"event_id": child_id}, headers=headers, timeout=15,
+                )
+                if rr.status_code == 200:
+                    hit = _parse_total35(rr.json(), require_set_context=True)
+                    if hit:
+                        return hit, "PinnOdds set special", None
+
+        return None, None, "Pinnacle does not currently expose a Total Sets 3.5 line for this matched event"
+    except Exception as exc:
+        return None, None, f"Direct PinnOdds totals request failed: {exc}"
 
 detail = st.session_state.get("selected_match_detail")
 if not detail:
@@ -290,10 +522,25 @@ with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
     if not sets or not sets.get("available"):
         st.info("The O/U 3.5 sets model is shown only for BO5 Grand Slam matches with the required model artifact.")
     else:
-        has_sets_price = bool(sets.get("odds_over35") and sets.get("odds_under35"))
+        # v0.3.2c: get the set-count price directly from PinnOdds on this page.
+        # This avoids any stale PinnOddsClient class held by Streamlit's module cache.
+        direct_pair, direct_source, direct_error = _direct_pinnodds_total35(
+            a, b, start_ts or None, int(time.time() // 60)
+        )
+        if direct_pair:
+            try:
+                sets = predict_over35(
+                    load_state(), a, b, result["surface"], result["tournament"], result["court_speed"],
+                    odds_over=float(direct_pair[0]), odds_under=float(direct_pair[1]),
+                )
+            except Exception as exc:
+                direct_error = f"Price found, but totals-model repricing failed: {exc}"
+            else:
+                quote["sets35"] = direct_pair
+                quote["sets35_source"] = direct_source
+                quote["sets35_error"] = None
 
-        # Always show the model's probabilities AND fair prices, even if the market
-        # quote has not opened yet.  This makes the totals model useful on its own.
+        has_sets_price = bool(sets.get("odds_over35") and sets.get("odds_under35"))
         s1, s2, s3, s4 = st.columns(4)
         s1.metric("Model P(Over 3.5)", f"{sets['probability_over35']:.1%}")
         s2.metric("Model fair odds — Over", f"{sets['fair_odds_over35']:.2f}")
@@ -306,17 +553,14 @@ with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
             m2.metric("Pinnacle Under 3.5", f"{sets['odds_under35']:.3f}")
             m3.metric("No-vig P(Over)", f"{sets.get('market_probability_over35', 0):.1%}")
             m4.metric("No-vig P(Under)", f"{sets.get('market_probability_under35', 0):.1%}")
-
             v1, v2, v3, v4 = st.columns(4)
             v1.metric("Over edge", f"{sets.get('edge_over35', 0):+.1%}")
             v2.metric("Over EV", f"{sets.get('ev_over35', 0):+.1%}")
             v3.metric("Under edge", f"{sets.get('edge_under35', 0):+.1%}")
             v4.metric("Under EV", f"{sets.get('ev_under35', 0):+.1%}")
-
             k1, k2 = st.columns(2)
             k1.metric("Quarter-Kelly — Over", f"{sets.get('quarter_kelly_over35', 0):.2%}")
             k2.metric("Quarter-Kelly — Under", f"{sets.get('quarter_kelly_under35', 0):.2%}")
-
             if sets.get("recommended_market") != "No bet":
                 stake = (current_bankroll() or 0) * float(sets.get("recommended_quarter_kelly", 0))
                 st.success(
@@ -326,33 +570,23 @@ with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
                 )
             else:
                 st.info("**NO O/U 3.5 BET** at the current Pinnacle prices.")
-
-            if quote.get("sets35_source"):
-                st.caption(f"Total Sets price source: {quote.get('sets35_source')}")
+            st.caption(f"Total Sets price source: {direct_source or quote.get('sets35_source') or 'PinnOdds'} · direct-v0.3.2c")
         else:
             st.warning(
-                "The O/U model is working, but a Pinnacle **Total Sets 3.5** price has not been found yet, "
-                "so EV, edge, Kelly and stake cannot be calculated. v0.3.2 checks both Pinnodds standard "
-                "tennis totals and Pinnacle special-market rows rather than relying on Matchstat for this market."
+                "The O/U probability model is working, but Pinnacle does not currently have a usable **Total Sets 3.5** "
+                "pair in the PinnOdds response, so EV/Kelly cannot be calculated yet."
             )
-            if quote.get("sets35_error"):
-                st.caption(f"Pinnacle Total Sets diagnostic: {quote.get('sets35_error')}")
+            st.caption(f"Direct PinnOdds diagnostic: {direct_error or 'No 3.5 set-count pair found'} · direct-v0.3.2c")
 
         p = sets["profiles"]
-        prof = pd.DataFrame(
-            [
-                {"Player": a, "GS O3.5 rate": p["player_a_gs"]["over35_rate"], "GS matches": p["player_a_gs"]["matches"], "Event O3.5 rate": p["player_a_event"]["over35_rate"], "Event matches": p["player_a_event"]["matches"], "Five-set rate": p["player_a_gs"]["five_set_rate"]},
-                {"Player": b, "GS O3.5 rate": p["player_b_gs"]["over35_rate"], "GS matches": p["player_b_gs"]["matches"], "Event O3.5 rate": p["player_b_event"]["over35_rate"], "Event matches": p["player_b_event"]["matches"], "Five-set rate": p["player_b_gs"]["five_set_rate"]},
-            ]
-        )
+        prof = pd.DataFrame([
+            {"Player": a, "GS O3.5 rate": p["player_a_gs"]["over35_rate"], "GS matches": p["player_a_gs"]["matches"], "Event O3.5 rate": p["player_a_event"]["over35_rate"], "Event matches": p["player_a_event"]["matches"], "Five-set rate": p["player_a_gs"]["five_set_rate"]},
+            {"Player": b, "GS O3.5 rate": p["player_b_gs"]["over35_rate"], "GS matches": p["player_b_gs"]["matches"], "Event O3.5 rate": p["player_b_event"]["over35_rate"], "Event matches": p["player_b_event"]["matches"], "Five-set rate": p["player_b_gs"]["five_set_rate"]},
+        ])
         st.dataframe(
             prof.style.format({"GS O3.5 rate": "{:.1%}", "Event O3.5 rate": "{:.1%}", "Five-set rate": "{:.1%}"}),
-            hide_index=True,
-            use_container_width=True,
+            hide_index=True, use_container_width=True,
         )
-
-        # Explain what the totals model is seeing without pretending these are
-        # independent additive effects.
         t1, t2, t3, t4 = st.columns(4)
         avg_gs = (p["player_a_gs"]["over35_rate"] + p["player_b_gs"]["over35_rate"]) / 2
         avg_event = (p["player_a_event"]["over35_rate"] + p["player_b_event"]["over35_rate"]) / 2
