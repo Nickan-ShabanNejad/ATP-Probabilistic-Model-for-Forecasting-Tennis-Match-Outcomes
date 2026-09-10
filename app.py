@@ -20,13 +20,15 @@ from atp_model.supabase_store import (
     configured as supabase_configured,
     current_bankroll as supabase_current_bankroll,
     get_starting_bankroll as supabase_get_starting_bankroll,
+    get_tracking_mode as supabase_get_tracking_mode,
+    healthcheck as supabase_healthcheck,
     record_detail_predictions,
 )
 
-MODEL_VERSION = "v0.3.3"
+MODEL_VERSION = "v0.3.4"
 
-st.set_page_config(page_title="ATP v0.3.3 Live Betting Board", page_icon="🎾", layout="wide")
-st.title("🎾 ATP v0.3.3 — Live Value Board")
+st.set_page_config(page_title="ATP v0.3.4 Live Betting Board", page_icon="🎾", layout="wide")
+st.title("🎾 ATP v0.3.4 — Live Value Board")
 st.caption(
     "Automated ATP 250 / 500 / Masters 1000 / ATP Finals / Grand Slam slate · Pinnacle prices · "
     "model probabilities · EV · quarter-Kelly · bankroll stakes · click any match for the full breakdown."
@@ -109,17 +111,23 @@ context = context_resource()
 metrics = bundle.get("metrics", {})
 
 if supabase_configured():
+    tracking_mode = supabase_get_tracking_mode()
     bankroll = supabase_current_bankroll()
-    if bankroll is None:
+    if bankroll is None and tracking_mode == "currency":
         bankroll = supabase_get_starting_bankroll()
 else:
+    tracking_mode = "currency"
     bankroll = local_current_bankroll()
     if bankroll is None:
         bankroll = local_get_starting_bankroll()
-bankroll = float(bankroll or 0.0)
+bankroll = float(bankroll or (100.0 if tracking_mode == "percentage" else 0.0))
 
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("Current bankroll", f"CA${bankroll:,.2f}" if bankroll else "Not set")
+if tracking_mode == "percentage":
+    m1.metric("Bankroll index", f"{bankroll:,.2f}")
+    m1.caption("Percentage mode · 100.00 = starting bankroll")
+else:
+    m1.metric("Current bankroll", f"CA${bankroll:,.2f}" if bankroll else "Not set")
 m2.metric("Model", str(metrics.get("selected_model", "unknown")).replace("_", " ").title())
 m3.metric("Latest match data", str(metrics.get("latest_data_date", "unknown")))
 m4.metric("Model log loss", f"{float(metrics.get('log_loss', 0)):.3f}")
@@ -132,7 +140,7 @@ with c2:
 with c3:
     include_q = st.toggle("Include qualifying", value=False)
 with c4:
-    today_only = st.toggle("Today only", value=True)
+    today_only = st.toggle("Today only (local time)", value=True)
 with c5:
     st.caption(
         "Odds refresh while this page is open. Starts <1h: ~30s · 1–6h: ~60s · later: ~3 min. "
@@ -172,11 +180,14 @@ def live_board():
         # 30-second live refresh does not flood Supabase with duplicates.
         tracking_sync = "local tracking"
         if supabase_configured():
-            tracking_sync = "Supabase connected"
+            ok_db, db_status = supabase_healthcheck()
+            tracking_sync = "Supabase connected" if ok_db else "Supabase configured; connection unavailable"
             signatures = st.session_state.setdefault("supabase_prediction_signatures", {})
             synced = 0
             sync_errors = []
             for event_id, match_detail in detail.items():
+                if not ok_db:
+                    break
                 result = match_detail.get("result") or {}
                 quote = match_detail.get("quote") or {}
                 sets = match_detail.get("sets") or {}
@@ -227,10 +238,14 @@ def live_board():
 
     recommended = board[board["Best market"].isin(["Moneyline", "Total sets 3.5"])]
     exposure = float(recommended["Best stake CA$"].sum()) if not recommended.empty else 0.0
+    exposure_pct = float(recommended["Best Kelly %"].sum()) if not recommended.empty else 0.0
     r1, r2, r3 = st.columns(3)
     r1.metric("Matches on board", len(board))
     r2.metric("Recommended opportunities", len(recommended))
-    r3.metric("Recommended stake exposure", f"CA${exposure:,.2f}")
+    if tracking_mode == "percentage":
+        r3.metric("Recommended stake exposure", f"{exposure_pct:.2%} of bankroll")
+    else:
+        r3.metric("Recommended stake exposure", f"CA${exposure:,.2f}")
 
     level_labels = {2.0: "250", 3.0: "500", 4.0: "Masters", 4.5: "Finals", 5.0: "Grand Slam"}
     shown = board.copy()
@@ -274,7 +289,7 @@ def live_board():
                 c6.write(
                     f"**{r['Best selection']}**\n\n"
                     f"EV {float(r['Best EV']):+.1%} · Kelly {float(r['Best Kelly %']):.2%}\n\n"
-                    f"CA${float(r['Best stake CA$']):,.2f}"
+                    + (f"{float(r['Best Kelly %']):.2%} bankroll" if tracking_mode == "percentage" else f"CA${float(r['Best stake CA$']):,.2f}")
                 )
             else:
                 c6.write("No bet")
