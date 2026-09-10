@@ -25,10 +25,10 @@ from atp_model.supabase_store import (
     record_detail_predictions,
 )
 
-MODEL_VERSION = "v0.3.5"
+MODEL_VERSION = "v0.3.6"
 
-st.set_page_config(page_title="ATP v0.3.5 Live Betting Board", page_icon="🎾", layout="wide")
-st.title("🎾 ATP v0.3.5 — Live Value Board")
+st.set_page_config(page_title="ATP v0.3.6 Live Betting Board", page_icon="🎾", layout="wide")
+st.title("🎾 ATP v0.3.6 — Live Value Board")
 st.caption(
     "Automated ATP 250 / 500 / Masters 1000 / ATP Finals / Grand Slam slate · Pinnacle prices · "
     "model probabilities · EV · quarter-Kelly · bankroll stakes · click any match for the full breakdown."
