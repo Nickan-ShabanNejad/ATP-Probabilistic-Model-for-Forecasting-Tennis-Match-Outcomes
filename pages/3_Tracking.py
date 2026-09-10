@@ -158,8 +158,8 @@ else:
 
 if evaluated.empty:
     st.info(
-        "No settled prediction outcomes yet. Once bets are settled, linked predictions will begin populating Brier score and log loss. "
-        "A later automation can settle every tracked prediction, including NO BET matches, from Matchstat results."
+        "No settled prediction outcomes yet. The background settlement workflow grades saved predictions after Matchstat marks a match finished. "
+        "That includes NO BET matches, so Brier score and log loss evaluate the model rather than only the bets you chose to place."
     )
 else:
     p = evaluated["model_probability"].clip(1e-6, 1 - 1e-6)
@@ -308,10 +308,10 @@ if not settled.empty:
 
 # ----------------------------- Settlement -----------------------------
 st.divider()
-st.subheader("Settle an open bet")
+st.subheader("Open bets / manual fallback")
 open_bets = [] if bets_df.empty else bets_df[bets_df["profit_loss"].isna()].to_dict("records")
 if not open_bets:
-    st.success("No unsettled bets.")
+    st.success("No unsettled bets. Normal completed matches are settled automatically by GitHub Actions.")
 else:
     labels = {
         int(x["id"]): f"#{int(x['id'])} — {x.get('selection')} · {x.get('market')} · {x.get('player_a')} vs {x.get('player_b')}"
@@ -350,7 +350,7 @@ else:
     if auto_close:
         st.caption(f"Last local pre-start Pinnacle snapshot found: {auto_close:.3f}.")
     else:
-        st.caption("No stored close was found locally. Enter the Pinnacle closing price manually for CLV, or leave 0 to settle without CLV.")
+        st.caption("The background worker normally stores the latest observed pre-match Pinnacle quote in Supabase. If no close was captured, enter it manually or leave 0 to settle without CLV.")
 
     if st.button("Settle bet", type="primary"):
         try:
