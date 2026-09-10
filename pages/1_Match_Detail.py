@@ -20,6 +20,7 @@ from atp_model.tracking import current_bankroll as local_current_bankroll, save_
 from atp_model.supabase_store import (
     configured as supabase_configured,
     current_bankroll as supabase_current_bankroll,
+    get_tracking_mode as supabase_get_tracking_mode,
     find_open_bet,
     place_bet,
     prediction_payload_from_detail,
@@ -27,7 +28,7 @@ from atp_model.supabase_store import (
 )
 from atp_model.sets_service import predict_over35
 
-MODEL_VERSION = "v0.3.3"
+MODEL_VERSION = "v0.3.4"
 
 st.set_page_config(page_title="ATP Match Detail", page_icon="🎾", layout="wide")
 
@@ -43,6 +44,15 @@ def _secret(name: str) -> str:
         return str(st.secrets.get(name, "")).strip()
     except Exception:
         return ""
+
+
+def _tracking_mode() -> str:
+    if supabase_configured():
+        try:
+            return supabase_get_tracking_mode()
+        except Exception:
+            pass
+    return "currency"
 
 
 def _tracking_bankroll() -> float:
@@ -316,7 +326,7 @@ if actual_ml_bet:
         f"**BET {pick} @ {result['recommended_odds']:.3f}** · model {pick_prob:.1%} · "
         f"edge {result['recommended_edge']:+.1%} · EV {result['recommended_ev']:+.1%} · "
         f"quarter-Kelly {result['recommended_quarter_kelly']:.2%} · "
-        f"stake CA${float(row.get('ML stake CA$', 0)):,.2f}"
+        + (f"stake {result['recommended_quarter_kelly']:.2%} of bankroll" if _tracking_mode() == "percentage" else f"stake CA${float(row.get('ML stake CA$', 0)):,.2f}")
     )
 elif has_ml:
     st.info("**NO MONEYLINE BET** at the current Pinnacle prices under your EV + edge thresholds.")
@@ -363,7 +373,7 @@ if actual_ml_bet:
         if existing_bet:
             st.success(
                 f"Bet already recorded in Supabase: **{pick} @ {float(existing_bet.get('odds_taken') or 0):.3f}** · "
-                f"stake CA${float(existing_bet.get('stake_amount') or 0):,.2f}."
+                + (f"stake {float(existing_bet.get('stake_percent') or 0):.2%} of bankroll." if _tracking_mode() == "percentage" else f"stake CA${float(existing_bet.get('stake_amount') or 0):,.2f}.")
             )
         else:
             with st.form(f"place_ml_{eid}", border=True):
@@ -374,12 +384,22 @@ if actual_ml_bet:
                         "Odds taken", min_value=1.01, value=float(result["recommended_odds"]), step=0.01, format="%.3f"
                     )
                 with bc2:
-                    recommended_stake = float(row.get("ML stake CA$", 0) or 0)
-                    placed_stake = st.number_input(
-                        "Stake (CA$)", min_value=0.01, value=max(0.01, recommended_stake), step=1.0
-                    )
+                    if _tracking_mode() == "percentage":
+                        placed_stake_pct = st.number_input(
+                            "Stake (% of bankroll)", min_value=0.01, max_value=100.0,
+                            value=max(0.01, float(pick_kelly) * 100.0), step=0.10, format="%.2f"
+                        )
+                        placed_stake = float(bankroll_now) * float(placed_stake_pct) / 100.0
+                    else:
+                        recommended_stake = float(row.get("ML stake CA$", 0) or 0)
+                        placed_stake = st.number_input(
+                            "Stake (CA$)", min_value=0.01, value=max(0.01, recommended_stake), step=1.0
+                        )
                 with bc3:
-                    st.metric("Bankroll before", f"CA${bankroll_now:,.2f}" if bankroll_now else "Not set")
+                    if _tracking_mode() == "percentage":
+                        st.metric("Bankroll index", f"{bankroll_now:,.2f}")
+                    else:
+                        st.metric("Bankroll before", f"CA${bankroll_now:,.2f}" if bankroll_now else "Not set")
                 submitted = st.form_submit_button(f"I placed {pick} — save bet", type="primary", use_container_width=True)
                 if submitted:
                     try:
@@ -640,7 +660,8 @@ with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
                 st.success(
                     f"**{sets['recommended_market']}** · EV {sets.get('recommended_ev', 0):+.1%} · "
                     f"edge {sets.get('recommended_edge', 0):+.1%} · quarter-Kelly "
-                    f"{sets.get('recommended_quarter_kelly', 0):.2%} · CA${stake:,.2f}"
+                    f"{sets.get('recommended_quarter_kelly', 0):.2%} · "
+                    + (f"{sets.get('recommended_quarter_kelly', 0):.2%} bankroll" if _tracking_mode() == "percentage" else f"CA${stake:,.2f}")
                 )
             else:
                 st.info("**NO O/U 3.5 BET** at the current Pinnacle prices.")
@@ -663,7 +684,7 @@ with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
                 if existing_sets_bet:
                     st.success(
                         f"Totals bet already recorded: **{selection} @ {float(existing_sets_bet.get('odds_taken') or 0):.3f}** · "
-                        f"stake CA${float(existing_sets_bet.get('stake_amount') or 0):,.2f}."
+                        + (f"stake {float(existing_sets_bet.get('stake_percent') or 0):.2%} of bankroll." if _tracking_mode() == "percentage" else f"stake CA${float(existing_sets_bet.get('stake_amount') or 0):,.2f}.")
                     )
                 else:
                     with st.form(f"place_sets_{eid}", border=True):
@@ -674,12 +695,22 @@ with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
                                 "Totals odds taken", min_value=1.01, value=selected_odds, step=0.01, format="%.3f"
                             )
                         with tc2:
-                            suggested = bankroll_now * selected_kelly if bankroll_now else 0.0
-                            sets_stake = st.number_input(
-                                "Totals stake (CA$)", min_value=0.01, value=max(0.01, suggested), step=1.0
-                            )
+                            if _tracking_mode() == "percentage":
+                                sets_stake_pct = st.number_input(
+                                    "Totals stake (% of bankroll)", min_value=0.01, max_value=100.0,
+                                    value=max(0.01, selected_kelly * 100.0), step=0.10, format="%.2f"
+                                )
+                                sets_stake = float(bankroll_now) * float(sets_stake_pct) / 100.0
+                            else:
+                                suggested = bankroll_now * selected_kelly if bankroll_now else 0.0
+                                sets_stake = st.number_input(
+                                    "Totals stake (CA$)", min_value=0.01, value=max(0.01, suggested), step=1.0
+                                )
                         with tc3:
-                            st.metric("Bankroll before", f"CA${bankroll_now:,.2f}" if bankroll_now else "Not set")
+                            if _tracking_mode() == "percentage":
+                                st.metric("Bankroll index", f"{bankroll_now:,.2f}")
+                            else:
+                                st.metric("Bankroll before", f"CA${bankroll_now:,.2f}" if bankroll_now else "Not set")
                         totals_submit = st.form_submit_button(
                             f"I placed {selection} — save bet", type="primary", use_container_width=True
                         )
