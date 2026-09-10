@@ -409,3 +409,32 @@ def test_settlement_leaves_retirement_abnormal():
     out = outcome_from_event(payload, "Player A", "Player B")
     assert out is not None
     assert out.abnormal is True
+
+
+def test_prediction_payload_tracks_model_pick_and_current_price():
+    from atp_model.supabase_store import prediction_payload_from_detail
+
+    detail = {
+        "event": {"id": "m1", "startTimestamp": 1788996600, "round": "R16", "league": "US Open"},
+        "context": {"level": 5.0},
+        "quote": {"moneyline": (4.50, 1.22)},
+        "result": {
+            "player_a": "Player A", "player_b": "Player B", "probability_a": 0.31, "probability_b": 0.69,
+            "fair_odds_a": 1/0.31, "market_probability_a": 0.25, "edge_a": 0.06, "ev_a": 0.395,
+            "surface": "Hard", "court_speed": 1.20, "tournament": "US Open", "tournament_level": 5.0,
+        },
+        "sets": {},
+    }
+    payload = prediction_payload_from_detail(detail, "vtest", "Moneyline")
+    assert payload["selection"] == "Player A"  # canonical calibration target
+    assert payload["predicted_selection"] == "Player B"
+    assert np.isclose(payload["predicted_probability"], 0.69)
+    assert np.isclose(payload["latest_odds"], 1.22)
+
+
+def test_prediction_snapshot_price_uses_model_selected_side():
+    from atp_model.supabase_store import _snapshot_price_for_prediction
+
+    pred = {"market": "Moneyline", "predicted_selection": "Player B", "model_probability": 0.31}
+    snap = {"selection_a": "Player A", "selection_b": "Player B", "odds_a": 4.5, "odds_b": 1.22}
+    assert np.isclose(_snapshot_price_for_prediction(pred, snap), 1.22)
