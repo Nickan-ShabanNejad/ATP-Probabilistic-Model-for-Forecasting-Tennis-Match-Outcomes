@@ -255,8 +255,31 @@ def _resolve_context(league: str, context: dict[str, dict]) -> dict | None:
 
 
 def _looks_lower_tier(event: dict) -> bool:
-    text = " ".join(str(event.get(k) or "") for k in ("league", "tourType", "name", "competition")).casefold()
-    return any(token in text for token in ("challenger", "itf", "future"))
+    """Hard-reject events below ATP 250 before fuzzy tournament matching.
+
+    Provider feeds occasionally label an ITF event only by city (for example
+    ``M15 Budapest``).  Without this guard the city token can fuzzy-match an old
+    ATP tour event in the historical context and be misclassified as an ATP 250.
+    """
+    fields = ("league", "tourType", "tour", "name", "competition", "tournament", "category")
+    text = " ".join(str(event.get(k) or "") for k in fields).casefold()
+
+    if any(token in text for token in (
+        "challenger", "itf", "future", "futures", "utr", "junior", "juniors",
+    )):
+        return True
+
+    # ITF World Tennis Tour naming: M15/M25 and W15/W25/W35/W50/W75/W100.
+    # The ATP board is men's-only, but rejecting both M/W forms is safer when a
+    # provider mixes tour categories in a fallback feed.
+    if re.search(r"\b[wm]\s*[- ]?(?:15|25|35|50|75|100)\b", text, flags=re.I):
+        return True
+
+    # Common Challenger shorthand in some feeds (CH, CH50/75/100/125/175).
+    if re.search(r"\bch\s*[- ]?(?:50|75|80|90|100|110|125|175)?\b", text, flags=re.I):
+        return True
+
+    return False
 
 
 def _looks_qualifying(event: dict) -> bool:
