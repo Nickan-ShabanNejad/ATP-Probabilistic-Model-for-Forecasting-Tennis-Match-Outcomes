@@ -16,8 +16,18 @@ sys.path.insert(0, str(ROOT / "src"))
 from atp_model.matchstat import MatchstatClient
 from atp_model.model_service import court_speed_curve, load_bundle, load_state
 from atp_model.tournament_features import court_speed_label
-from atp_model.tracking import current_bankroll, save_prediction
+from atp_model.tracking import current_bankroll as local_current_bankroll, save_prediction as local_save_prediction
+from atp_model.supabase_store import (
+    configured as supabase_configured,
+    current_bankroll as supabase_current_bankroll,
+    find_open_bet,
+    place_bet,
+    prediction_payload_from_detail,
+    upsert_prediction,
+)
 from atp_model.sets_service import predict_over35
+
+MODEL_VERSION = "v0.3.3"
 
 st.set_page_config(page_title="ATP Match Detail", page_icon="🎾", layout="wide")
 
@@ -33,6 +43,14 @@ def _secret(name: str) -> str:
         return str(st.secrets.get(name, "")).strip()
     except Exception:
         return ""
+
+
+def _tracking_bankroll() -> float:
+    if supabase_configured():
+        value = supabase_current_bankroll()
+        if value is not None:
+            return float(value)
+    return float(local_current_bankroll() or 0.0)
 
 
 def _norm_player(value: str) -> str:
@@ -327,36 +345,92 @@ st.write(
 )
 
 if actual_ml_bet:
-    if pick_side == "A":
-        tracked = {**result, "event_id": eid, "start_timestamp": start_ts, "market_type": "Moneyline", "selection": a}
-        track_oa, track_ob = oa, ob
+    pick = result["recommended_pick"]
+    pick_prob = result["probability_a"] if pick_side == "A" else result["probability_b"]
+    pick_fair = result["fair_odds_a"] if pick_side == "A" else result["fair_odds_b"]
+    pick_edge = result["edge_a"] if pick_side == "A" else result["edge_b"]
+    pick_ev = result["ev_a"] if pick_side == "A" else result["ev_b"]
+    pick_kelly = result["quarter_kelly_a"] if pick_side == "A" else result["quarter_kelly_b"]
+    opposite = b if pick_side == "A" else a
+    bankroll_now = _tracking_bankroll()
+
+    if supabase_configured():
+        existing_bet = None
+        try:
+            existing_bet = find_open_bet(eid, "Moneyline", pick)
+        except Exception:
+            existing_bet = None
+        if existing_bet:
+            st.success(
+                f"Bet already recorded in Supabase: **{pick} @ {float(existing_bet.get('odds_taken') or 0):.3f}** · "
+                f"stake CA${float(existing_bet.get('stake_amount') or 0):,.2f}."
+            )
+        else:
+            with st.form(f"place_ml_{eid}", border=True):
+                st.markdown("**Record this moneyline bet**")
+                bc1, bc2, bc3 = st.columns(3)
+                with bc1:
+                    placed_odds = st.number_input(
+                        "Odds taken", min_value=1.01, value=float(result["recommended_odds"]), step=0.01, format="%.3f"
+                    )
+                with bc2:
+                    recommended_stake = float(row.get("ML stake CA$", 0) or 0)
+                    placed_stake = st.number_input(
+                        "Stake (CA$)", min_value=0.01, value=max(0.01, recommended_stake), step=1.0
+                    )
+                with bc3:
+                    st.metric("Bankroll before", f"CA${bankroll_now:,.2f}" if bankroll_now else "Not set")
+                submitted = st.form_submit_button(f"I placed {pick} — save bet", type="primary", use_container_width=True)
+                if submitted:
+                    try:
+                        pred_payload = prediction_payload_from_detail(detail, MODEL_VERSION, "Moneyline")
+                        prediction_id = upsert_prediction(pred_payload)
+                        bet_id = place_bet(
+                            prediction_id=prediction_id,
+                            match_id=eid,
+                            match_date=pred_payload.get("match_date"),
+                            model_version=MODEL_VERSION,
+                            tournament=result.get("tournament"),
+                            tournament_level=result.get("tournament_level"),
+                            surface=result.get("surface"),
+                            round_name=pred_payload.get("round"),
+                            player_a=a,
+                            player_b=b,
+                            market="Moneyline",
+                            selection=pick,
+                            model_probability=float(pick_prob),
+                            model_fair_odds=float(pick_fair),
+                            odds_taken=float(placed_odds),
+                            edge=float(pick_edge),
+                            expected_value=float(pick_ev),
+                            bankroll_before=bankroll_now or None,
+                            kelly_fraction=float(pick_kelly),
+                            stake_amount=float(placed_stake),
+                        )
+                        st.success(f"Bet #{bet_id} saved permanently to Supabase Tracking.")
+                        st.rerun()
+                    except Exception as exc:
+                        st.error(f"Could not save bet to Supabase: {exc}")
     else:
-        tracked = {
-            **result,
-            "event_id": eid,
-            "start_timestamp": start_ts,
-            "market_type": "Moneyline",
-            "selection": b,
-            "player_a": b,
-            "player_b": a,
-            "probability_a": result["probability_b"],
-            "probability_b": result["probability_a"],
-            "market_probability_a": result["market_probability_b"],
-            "edge": result["edge_b"],
-            "ev": result["ev_b"],
-            "fair_odds_a": result["fair_odds_b"],
-            "quarter_kelly": result["quarter_kelly_b"],
-        }
-        track_oa, track_ob = ob, oa
-    if st.button(f"Save {result['recommended_pick']} bet to Tracking", type="primary"):
-        pid = save_prediction(
-            tracked,
-            track_oa,
-            track_ob,
-            float(row.get("ML stake CA$", 0)),
-            notes=f"Event {eid}; automated v0.3.2 board",
-        )
-        st.success(f"Saved tracking row #{pid}.")
+        # Local fallback for development if Supabase is not configured.
+        if pick_side == "A":
+            tracked = {**result, "event_id": eid, "start_timestamp": start_ts, "market_type": "Moneyline", "selection": a}
+            track_oa, track_ob = oa, ob
+        else:
+            tracked = {
+                **result, "event_id": eid, "start_timestamp": start_ts, "market_type": "Moneyline", "selection": b,
+                "player_a": b, "player_b": a, "probability_a": result["probability_b"],
+                "probability_b": result["probability_a"], "market_probability_a": result["market_probability_b"],
+                "edge": result["edge_b"], "ev": result["ev_b"], "fair_odds_a": result["fair_odds_b"],
+                "quarter_kelly": result["quarter_kelly_b"],
+            }
+            track_oa, track_ob = ob, oa
+        if st.button(f"Save {result['recommended_pick']} bet to local Tracking", type="primary"):
+            pid = local_save_prediction(
+                tracked, track_oa, track_ob, float(row.get("ML stake CA$", 0)),
+                notes=f"Event {eid}; automated {MODEL_VERSION} board",
+            )
+            st.success(f"Saved local tracking row #{pid}.")
 
 # Keep the new explainability work, but present it like the v0.2 expanders instead of a tabbed dashboard.
 with st.expander("Why does the model lean this way?", expanded=True):
@@ -562,7 +636,7 @@ with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
             k1.metric("Quarter-Kelly — Over", f"{sets.get('quarter_kelly_over35', 0):.2%}")
             k2.metric("Quarter-Kelly — Under", f"{sets.get('quarter_kelly_under35', 0):.2%}")
             if sets.get("recommended_market") != "No bet":
-                stake = (current_bankroll() or 0) * float(sets.get("recommended_quarter_kelly", 0))
+                stake = _tracking_bankroll() * float(sets.get("recommended_quarter_kelly", 0))
                 st.success(
                     f"**{sets['recommended_market']}** · EV {sets.get('recommended_ev', 0):+.1%} · "
                     f"edge {sets.get('recommended_edge', 0):+.1%} · quarter-Kelly "
@@ -570,6 +644,71 @@ with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
                 )
             else:
                 st.info("**NO O/U 3.5 BET** at the current Pinnacle prices.")
+
+            if sets.get("recommended_market") != "No bet" and supabase_configured():
+                selection = str(sets["recommended_market"])
+                is_over_bet = selection.casefold().startswith("over")
+                selected_prob = float(sets["probability_over35"] if is_over_bet else sets["probability_under35"])
+                selected_fair = float(sets["fair_odds_over35"] if is_over_bet else sets["fair_odds_under35"])
+                selected_odds = float(sets["odds_over35"] if is_over_bet else sets["odds_under35"])
+                selected_edge = float(sets["edge_over35"] if is_over_bet else sets["edge_under35"])
+                selected_ev = float(sets["ev_over35"] if is_over_bet else sets["ev_under35"])
+                selected_kelly = float(sets["quarter_kelly_over35"] if is_over_bet else sets["quarter_kelly_under35"])
+                bankroll_now = _tracking_bankroll()
+                existing_sets_bet = None
+                try:
+                    existing_sets_bet = find_open_bet(eid, "Total Sets 3.5", selection)
+                except Exception:
+                    existing_sets_bet = None
+                if existing_sets_bet:
+                    st.success(
+                        f"Totals bet already recorded: **{selection} @ {float(existing_sets_bet.get('odds_taken') or 0):.3f}** · "
+                        f"stake CA${float(existing_sets_bet.get('stake_amount') or 0):,.2f}."
+                    )
+                else:
+                    with st.form(f"place_sets_{eid}", border=True):
+                        st.markdown("**Record this Total Sets bet**")
+                        tc1, tc2, tc3 = st.columns(3)
+                        with tc1:
+                            sets_odds_taken = st.number_input(
+                                "Totals odds taken", min_value=1.01, value=selected_odds, step=0.01, format="%.3f"
+                            )
+                        with tc2:
+                            suggested = bankroll_now * selected_kelly if bankroll_now else 0.0
+                            sets_stake = st.number_input(
+                                "Totals stake (CA$)", min_value=0.01, value=max(0.01, suggested), step=1.0
+                            )
+                        with tc3:
+                            st.metric("Bankroll before", f"CA${bankroll_now:,.2f}" if bankroll_now else "Not set")
+                        totals_submit = st.form_submit_button(
+                            f"I placed {selection} — save bet", type="primary", use_container_width=True
+                        )
+                        if totals_submit:
+                            try:
+                                pred_payload = prediction_payload_from_detail(detail, MODEL_VERSION, "Total Sets 3.5")
+                                # Use the direct price/model values rendered on this page, not a potentially stale slate copy.
+                                pred_payload.update({
+                                    "pinnacle_odds": float(sets["odds_over35"]),
+                                    "pinnacle_no_vig_probability": sets.get("market_probability_over35"),
+                                    "edge": sets.get("edge_over35"),
+                                    "expected_value": sets.get("ev_over35"),
+                                })
+                                prediction_id = upsert_prediction(pred_payload)
+                                bet_id = place_bet(
+                                    prediction_id=prediction_id, match_id=eid, match_date=pred_payload.get("match_date"),
+                                    model_version=MODEL_VERSION, tournament=result.get("tournament"),
+                                    tournament_level=result.get("tournament_level"), surface=result.get("surface"),
+                                    round_name=pred_payload.get("round"), player_a=a, player_b=b,
+                                    market="Total Sets 3.5", selection=selection, model_probability=selected_prob,
+                                    model_fair_odds=selected_fair, odds_taken=float(sets_odds_taken), edge=selected_edge,
+                                    expected_value=selected_ev, bankroll_before=bankroll_now or None,
+                                    kelly_fraction=selected_kelly, stake_amount=float(sets_stake),
+                                )
+                                st.success(f"Bet #{bet_id} saved permanently to Supabase Tracking.")
+                                st.rerun()
+                            except Exception as exc:
+                                st.error(f"Could not save totals bet to Supabase: {exc}")
+
             st.caption(f"Total Sets price source: {direct_source or quote.get('sets35_source') or 'PinnOdds'} · direct-v0.3.2c")
         else:
             st.warning(
