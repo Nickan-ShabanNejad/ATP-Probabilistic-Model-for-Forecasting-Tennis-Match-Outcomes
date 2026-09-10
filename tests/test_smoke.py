@@ -325,3 +325,87 @@ def test_pinnodds_parses_total_sets_special_35():
         }]
     }
     assert PinnOddsClient._total35_from_special_tree(payload) == (1.91, 1.95)
+
+
+def test_live_slate_hard_rejects_itf_m15_before_city_fuzzy_match():
+    from atp_model.slate import eligible_events
+    import time
+
+    context = {
+        "budapest": {
+            "surface": "Clay", "level": 2.0, "indoor": False,
+            "tournament": "Budapest", "best_of": 3.0,
+        }
+    }
+    events = [{
+        "id": "m15-1",
+        "league": "M15 Budapest",
+        "name": "Player A vs Player B",
+        "tourType": "ATP",
+        "status": "Upcoming",
+        "startTimestamp": time.time() + 3600,
+        "participant1": "Player A",
+        "participant2": "Player B",
+    }]
+    kept, diag = eligible_events(events, context, today_only=False)
+    assert kept == []
+    assert diag["lower_tier"] == 1
+
+
+def test_live_slate_keeps_real_atp250():
+    from atp_model.slate import eligible_events
+    import time
+
+    context = {
+        "brisbane": {
+            "surface": "Hard", "level": 2.0, "indoor": False,
+            "tournament": "Brisbane", "best_of": 3.0,
+        }
+    }
+    events = [{
+        "id": "atp250-1",
+        "league": "ATP Brisbane",
+        "name": "Player A vs Player B",
+        "tourType": "ATP",
+        "status": "Upcoming",
+        "startTimestamp": time.time() + 3600,
+        "participant1": "Player A",
+        "participant2": "Player B",
+    }]
+    kept, diag = eligible_events(events, context, today_only=False)
+    assert len(kept) == 1
+    assert kept[0]["_ctx"]["level"] == 2.0
+
+
+def test_settlement_parses_normal_bo5_score_and_winner():
+    from atp_model.settlement import outcome_from_event
+
+    payload = {
+        "result": {
+            "status": "Ended",
+            "participant1": "Player A",
+            "participant2": "Player B",
+            "score": "6-4 3-6 7-6(5) 6-2",
+        }
+    }
+    out = outcome_from_event(payload, "Player A", "Player B")
+    assert out is not None
+    assert out.winner == "Player A"
+    assert out.sets_played == 4
+    assert out.abnormal is False
+
+
+def test_settlement_leaves_retirement_abnormal():
+    from atp_model.settlement import outcome_from_event
+
+    payload = {
+        "result": {
+            "status": "Retired",
+            "participant1": "Player A",
+            "participant2": "Player B",
+            "score": "6-4 2-1",
+        }
+    }
+    out = outcome_from_event(payload, "Player A", "Player B")
+    assert out is not None
+    assert out.abnormal is True
