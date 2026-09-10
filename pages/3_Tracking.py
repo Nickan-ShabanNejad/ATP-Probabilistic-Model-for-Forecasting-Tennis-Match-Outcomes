@@ -16,6 +16,8 @@ from atp_model.supabase_store import (
     current_bankroll,
     delete_bet,
     get_starting_bankroll,
+    get_tracking_mode,
+    set_tracking_mode,
     healthcheck,
     list_bets,
     list_predictions,
@@ -41,33 +43,62 @@ if not supabase_configured():
 ok, status = healthcheck()
 if not ok:
     st.error(f"Could not connect to Supabase: {status}")
-    st.caption("If you just created the tables, also run supabase_tracking_upgrade.sql from this repo in Supabase SQL Editor.")
+    if "NameResolutionError" in status or "Failed to resolve" in status or "Name or service not known" in status:
+        st.warning(
+            "This is a Supabase URL/DNS problem, not a table or API-key error. Go to the Supabase project home, "
+            "make sure the project status is Active/Healthy (not 'Coming up…'), click Copy beside the Project URL, "
+            "replace SUPABASE_URL in Streamlit Secrets, save, then reboot the app."
+        )
+    else:
+        st.caption("If you just created the tables, also run supabase_tracking_upgrade.sql from this repo in Supabase SQL Editor.")
     st.stop()
 
 st.success("Supabase connected — tracking survives Streamlit reboots and redeploys.")
 
-# ----------------------------- Bankroll -----------------------------
-st.subheader("Bankroll")
-starting = get_starting_bankroll()
-left, right = st.columns([1, 3])
-with left:
-    bankroll_input = st.number_input(
-        "Starting bankroll (CA$)",
-        min_value=0.0,
-        value=float(starting or 0.0),
-        step=50.0,
-    )
-with right:
-    st.caption(
-        "This value is stored in Supabase. Current bankroll = starting bankroll + realized P&L from settled bets."
-    )
-if st.button("Save starting bankroll", type="secondary"):
-    try:
-        set_starting_bankroll(float(bankroll_input))
-        st.success("Starting bankroll saved permanently.")
+# ----------------------------- Tracking mode / bankroll -----------------------------
+st.subheader("Staking basis")
+mode = get_tracking_mode()
+choice = st.radio(
+    "How do you want to track stakes?",
+    ["Percentage only", "Currency bankroll (CA$)"],
+    index=0 if mode == "percentage" else 1,
+    horizontal=True,
+)
+selected_mode = "percentage" if choice == "Percentage only" else "currency"
+if selected_mode != mode:
+    if st.button("Save staking mode", type="secondary"):
+        set_tracking_mode(selected_mode)
+        st.success("Staking mode saved.")
         st.rerun()
-    except Exception as exc:
-        st.error(f"Could not save bankroll: {exc}")
+
+if mode == "percentage":
+    starting = 100.0
+    st.info(
+        "Percentage-only mode is active. You do not need to enter your real bankroll. "
+        "The tracker uses a normalized bankroll index starting at 100.00; a 2% stake is recorded as 2% of the current index."
+    )
+else:
+    st.subheader("Bankroll")
+    starting = get_starting_bankroll()
+    left, right = st.columns([1, 3])
+    with left:
+        bankroll_input = st.number_input(
+            "Starting bankroll (CA$)",
+            min_value=0.0,
+            value=float(starting or 0.0),
+            step=50.0,
+        )
+    with right:
+        st.caption(
+            "This value is stored in Supabase. Current bankroll = starting bankroll + realized P&L from settled bets."
+        )
+    if st.button("Save starting bankroll", type="secondary"):
+        try:
+            set_starting_bankroll(float(bankroll_input))
+            st.success("Starting bankroll saved permanently.")
+            st.rerun()
+        except Exception as exc:
+            st.error(f"Could not save bankroll: {exc}")
 
 try:
     bets = list_bets()
@@ -106,9 +137,9 @@ bank = current_bankroll()
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Settled bets", str(len(settled)), f"{wins}W–{losses}L–{voids}V" if len(settled) else None)
-m2.metric("Profit", f"CA${profit:,.2f}")
+m2.metric("Bankroll P&L" if mode == "percentage" else "Profit", f"{profit:+.2f} pts" if mode == "percentage" else f"CA${profit:,.2f}")
 m3.metric("Yield / ROI on stake", f"{yield_pct:+.1%}" if np.isfinite(yield_pct) else "—")
-m4.metric("Current bankroll", f"CA${bank:,.2f}" if bank is not None else "Set bankroll")
+m4.metric("Bankroll index" if mode == "percentage" else "Current bankroll", f"{bank:,.2f}" if mode == "percentage" and bank is not None else (f"CA${bank:,.2f}" if bank is not None else "Set bankroll"))
 
 m5, m6, m7, m8 = st.columns(4)
 m5.metric("Average CLV", f"{avg_clv:+.2%}" if np.isfinite(avg_clv) else "—")
@@ -181,20 +212,24 @@ else:
         "expected_value": "EV",
         "kelly_fraction": "Kelly",
         "stake_percent": "Stake %",
-        "stake_amount": "Stake",
+        "stake_amount": "Stake points" if mode == "percentage" else "Stake",
         "result": "Result",
-        "profit_loss": "P&L",
+        "profit_loss": "P&L points" if mode == "percentage" else "P&L",
         "clv": "CLV",
     })
     cols = [
         "id", "Placed", "Match date", "Tournament", "Level", "Match", "Market", "Selection",
-        "Model P", "Fair odds", "Odds taken", "Close", "Edge", "EV", "Kelly", "Stake %", "Stake", "Result", "P&L", "CLV", "Version",
+        "Model P", "Fair odds", "Odds taken", "Close", "Edge", "EV", "Kelly", "Stake %",
+        ("Stake points" if mode == "percentage" else "Stake"), "Result",
+        ("P&L points" if mode == "percentage" else "P&L"), "CLV", "Version",
     ]
     cols = [c for c in cols if c in display.columns]
     st.dataframe(
         display[cols].sort_values("Placed", ascending=False).style.format({
             "Model P": "{:.1%}", "Edge": "{:+.1%}", "EV": "{:+.1%}", "Kelly": "{:.2%}",
-            "Stake %": "{:.2%}", "Stake": "CA${:,.2f}", "P&L": "CA${:,.2f}", "CLV": "{:+.2%}",
+            "Stake %": "{:.2%}",
+            **({"Stake points": "{:.2f}", "P&L points": "{:+.2f}"} if mode == "percentage" else {"Stake": "CA${:,.2f}", "P&L": "CA${:,.2f}"}),
+            "CLV": "{:+.2%}",
             "Fair odds": "{:.3f}", "Odds taken": "{:.3f}", "Close": "{:.3f}",
         }, na_rep="—"),
         hide_index=True,
@@ -214,10 +249,11 @@ if not settled.empty:
     curve = settled.sort_values("settled_at").copy()
     curve["Cumulative P&L"] = curve["profit_loss"].fillna(0).cumsum()
     if starting is not None:
-        curve["Bankroll"] = float(starting) + curve["Cumulative P&L"]
-        curve["Peak"] = curve["Bankroll"].cummax().clip(lower=1e-9)
-        curve["Drawdown"] = curve["Bankroll"] / curve["Peak"] - 1
-        st.line_chart(curve.set_index("settled_at")[["Bankroll"]])
+        curve["Bankroll index" if mode == "percentage" else "Bankroll"] = float(starting) + curve["Cumulative P&L"]
+        curve_col = "Bankroll index" if mode == "percentage" else "Bankroll"
+        curve["Peak"] = curve[curve_col].cummax().clip(lower=1e-9)
+        curve["Drawdown"] = curve[curve_col] / curve["Peak"] - 1
+        st.line_chart(curve.set_index("settled_at")[[curve_col]])
         st.metric("Maximum drawdown", f"{float(curve['Drawdown'].min()):.1%}")
     else:
         st.line_chart(curve.set_index("settled_at")[["Cumulative P&L"]])
@@ -239,14 +275,14 @@ if not settled.empty:
         ).reset_index()
         by_market["ROI"] = np.where(by_market["Stake"] > 0, by_market["Profit"] / by_market["Stake"], np.nan)
         st.write("**By market**")
-        st.dataframe(by_market.style.format({"Stake": "CA${:,.2f}", "Profit": "CA${:,.2f}", "ROI": "{:+.1%}"}), hide_index=True, use_container_width=True)
+        st.dataframe(by_market.style.format({"Stake": "{:.2f} pts" if mode == "percentage" else "CA${:,.2f}", "Profit": "{:+.2f} pts" if mode == "percentage" else "CA${:,.2f}", "ROI": "{:+.1%}"}), hide_index=True, use_container_width=True)
     with b2:
         by_surface = settled.groupby("surface", dropna=False).agg(
             Bets=("id", "count"), Stake=("stake_amount", "sum"), Profit=("profit_loss", "sum")
         ).reset_index()
         by_surface["ROI"] = np.where(by_surface["Stake"] > 0, by_surface["Profit"] / by_surface["Stake"], np.nan)
         st.write("**By surface**")
-        st.dataframe(by_surface.style.format({"Stake": "CA${:,.2f}", "Profit": "CA${:,.2f}", "ROI": "{:+.1%}"}), hide_index=True, use_container_width=True)
+        st.dataframe(by_surface.style.format({"Stake": "{:.2f} pts" if mode == "percentage" else "CA${:,.2f}", "Profit": "{:+.2f} pts" if mode == "percentage" else "CA${:,.2f}", "ROI": "{:+.1%}"}), hide_index=True, use_container_width=True)
 
     b3, b4 = st.columns(2)
     with b3:
@@ -255,7 +291,7 @@ if not settled.empty:
         ).reset_index()
         by_level["ROI"] = np.where(by_level["Stake"] > 0, by_level["Profit"] / by_level["Stake"], np.nan)
         st.write("**By tournament level**")
-        st.dataframe(by_level.style.format({"Stake": "CA${:,.2f}", "Profit": "CA${:,.2f}", "ROI": "{:+.1%}"}), hide_index=True, use_container_width=True)
+        st.dataframe(by_level.style.format({"Stake": "{:.2f} pts" if mode == "percentage" else "CA${:,.2f}", "Profit": "{:+.2f} pts" if mode == "percentage" else "CA${:,.2f}", "ROI": "{:+.1%}"}), hide_index=True, use_container_width=True)
     with b4:
         edge_buckets = settled.copy()
         edge_buckets["Edge bucket"] = pd.cut(
@@ -268,7 +304,7 @@ if not settled.empty:
         ).reset_index()
         by_edge["ROI"] = np.where(by_edge["Stake"] > 0, by_edge["Profit"] / by_edge["Stake"], np.nan)
         st.write("**By model edge**")
-        st.dataframe(by_edge.style.format({"Stake": "CA${:,.2f}", "Profit": "CA${:,.2f}", "ROI": "{:+.1%}"}), hide_index=True, use_container_width=True)
+        st.dataframe(by_edge.style.format({"Stake": "{:.2f} pts" if mode == "percentage" else "CA${:,.2f}", "Profit": "{:+.2f} pts" if mode == "percentage" else "CA${:,.2f}", "ROI": "{:+.1%}"}), hide_index=True, use_container_width=True)
 
 # ----------------------------- Settlement -----------------------------
 st.divider()
