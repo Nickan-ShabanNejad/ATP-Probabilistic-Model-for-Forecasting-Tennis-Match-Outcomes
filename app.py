@@ -15,10 +15,18 @@ from atp_model.matchstat import MatchstatClient
 from atp_model.pinnodds import PinnOddsClient
 from atp_model.model_service import load_bundle, load_state
 from atp_model.slate import build_slate, eligible_events, tournament_context
-from atp_model.tracking import current_bankroll, get_starting_bankroll
+from atp_model.tracking import current_bankroll as local_current_bankroll, get_starting_bankroll as local_get_starting_bankroll
+from atp_model.supabase_store import (
+    configured as supabase_configured,
+    current_bankroll as supabase_current_bankroll,
+    get_starting_bankroll as supabase_get_starting_bankroll,
+    record_detail_predictions,
+)
 
-st.set_page_config(page_title="ATP v0.3.2 Live Betting Board", page_icon="🎾", layout="wide")
-st.title("🎾 ATP v0.3.2 — Live Value Board")
+MODEL_VERSION = "v0.3.3"
+
+st.set_page_config(page_title="ATP v0.3.3 Live Betting Board", page_icon="🎾", layout="wide")
+st.title("🎾 ATP v0.3.3 — Live Value Board")
 st.caption(
     "Automated ATP 250 / 500 / Masters 1000 / ATP Finals / Grand Slam slate · Pinnacle prices · "
     "model probabilities · EV · quarter-Kelly · bankroll stakes · click any match for the full breakdown."
@@ -100,9 +108,15 @@ pinnacle_client = pinnacle_resource(pinn_key) if pinn_key else None
 context = context_resource()
 metrics = bundle.get("metrics", {})
 
-bankroll = current_bankroll()
-if bankroll is None:
-    bankroll = float(get_starting_bankroll() or 0.0)
+if supabase_configured():
+    bankroll = supabase_current_bankroll()
+    if bankroll is None:
+        bankroll = supabase_get_starting_bankroll()
+else:
+    bankroll = local_current_bankroll()
+    if bankroll is None:
+        bankroll = local_get_starting_bankroll()
+bankroll = float(bankroll or 0.0)
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Current bankroll", f"CA${bankroll:,.2f}" if bankroll else "Not set")
@@ -152,6 +166,41 @@ def live_board():
             min_ev=min_ev,
             min_edge=min_edge,
         )
+
+        # Persist one current pre-match prediction per match/market/model version.
+        # The row is updated only when its model/market snapshot changes, so the
+        # 30-second live refresh does not flood Supabase with duplicates.
+        tracking_sync = "local tracking"
+        if supabase_configured():
+            tracking_sync = "Supabase connected"
+            signatures = st.session_state.setdefault("supabase_prediction_signatures", {})
+            synced = 0
+            sync_errors = []
+            for event_id, match_detail in detail.items():
+                result = match_detail.get("result") or {}
+                quote = match_detail.get("quote") or {}
+                sets = match_detail.get("sets") or {}
+                ml = quote.get("moneyline") or (None, None)
+                sig = (
+                    round(float(result.get("probability_a", 0) or 0), 6),
+                    round(float(result.get("probability_b", 0) or 0), 6),
+                    ml[0] if len(ml) > 0 else None,
+                    ml[1] if len(ml) > 1 else None,
+                    round(float(result.get("court_speed", 0) or 0), 4),
+                    round(float(sets.get("probability_over35", 0) or 0), 6) if sets.get("available") else None,
+                    sets.get("odds_over35") if sets.get("available") else None,
+                    sets.get("odds_under35") if sets.get("available") else None,
+                )
+                if signatures.get(str(event_id)) == sig:
+                    continue
+                try:
+                    record_detail_predictions(match_detail, MODEL_VERSION)
+                    signatures[str(event_id)] = sig
+                    synced += 1
+                except Exception as exc:
+                    sync_errors.append(f"{event_id}: {exc}")
+            if sync_errors:
+                tracking_sync = f"Supabase warning ({len(sync_errors)} sync error(s))"
     except Exception as exc:
         st.error(f"Could not refresh the live board: {exc}")
         return
@@ -163,7 +212,8 @@ def live_board():
         f"Board refreshed {now} · {len(events)} raw ATP upcoming events received · "
         f"{len(eligible)} eligible ATP 250-or-higher events inspected · {len(board)} matches shown · "
         f"{price_count} currently have usable Pinnacle moneyline prices · "
-        f"event source: {getattr(client, 'last_upcoming_source', 'cached/unknown')} · Pinnacle source: {pin_mode}."
+        f"event source: {getattr(client, 'last_upcoming_source', 'cached/unknown')} · Pinnacle source: {pin_mode} · "
+        f"Tracking: {tracking_sync}."
     )
     if board.empty:
         st.info("No ATP 250 / 500 / Masters / Finals / Grand Slam matches could currently be matched to the model.")
