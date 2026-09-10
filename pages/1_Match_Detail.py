@@ -28,7 +28,7 @@ from atp_model.supabase_store import (
 )
 from atp_model.sets_service import predict_over35
 
-MODEL_VERSION = "v0.3.4"
+MODEL_VERSION = "v0.3.5"
 
 st.set_page_config(page_title="ATP Match Detail", page_icon="🎾", layout="wide")
 
