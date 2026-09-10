@@ -206,9 +206,52 @@ def refresh_open_bet_closes(pinn: PinnOddsClient, now: datetime | None = None) -
     return {"updated": updated, "skipped": skipped, "errors": errors}
 
 
+
+def finalize_prediction_closes(now: datetime | None = None) -> dict[str, int]:
+    """Freeze the last tracked pre-start Pinnacle price for every model prediction."""
+    now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    updated = 0
+    skipped = 0
+    errors = 0
+    try:
+        predictions = supabase_store.list_predictions()
+    except Exception:
+        return {"updated": 0, "skipped": 0, "errors": 1}
+
+    for pred in predictions:
+        if pred.get("closing_odds") not in (None, ""):
+            continue
+        start = _as_utc(pred.get("match_date"))
+        if start is None or start > now:
+            continue
+        try:
+            snap = supabase_store.last_pre_start_odds_snapshot(
+                str(pred.get("match_id") or ""),
+                str(pred.get("market") or ""),
+                str(pred.get("match_date") or ""),
+            )
+            if not snap:
+                skipped += 1
+                continue
+            price = supabase_store._snapshot_price_for_prediction(pred, snap)
+            if price and price > 1.0:
+                supabase_store.finalize_prediction_close(
+                    int(pred["id"]),
+                    float(price),
+                    captured_at=str(snap.get("captured_at") or ""),
+                )
+                updated += 1
+            else:
+                skipped += 1
+        except Exception:
+            errors += 1
+    return {"updated": updated, "skipped": skipped, "errors": errors}
+
+
 def settle_finished_tracking(client: MatchstatClient, now: datetime | None = None) -> dict[str, int]:
     """Grade every saved prediction and corresponding open bet that has finished."""
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    finalize_prediction_closes(now)
     preds = supabase_store.list_predictions()
     bets = supabase_store.list_bets()
 
