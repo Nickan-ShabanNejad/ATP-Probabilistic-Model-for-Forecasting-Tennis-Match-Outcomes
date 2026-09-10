@@ -25,10 +25,11 @@ from atp_model.supabase_store import (
     place_bet,
     prediction_payload_from_detail,
     upsert_prediction,
+    list_odds_snapshots,
 )
 from atp_model.sets_service import predict_over35
 
-MODEL_VERSION = "v0.3.5"
+MODEL_VERSION = "v0.3.6"
 
 st.set_page_config(page_title="ATP Match Detail", page_icon="🎾", layout="wide")
 
@@ -773,22 +774,53 @@ with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
 with st.expander("Market / CLV diagnostics"):
     if has_ml:
         st.write(f"Latest Pinnacle moneyline: **{a} {oa:.3f} · {b} {ob:.3f}**")
-        st.caption(f"Quote source: {quote.get('source') or 'Matchstat odds feed'}")
+        st.caption(f"Quote source: {quote.get('source') or 'Pinnacle feed'}")
     else:
         st.warning("No Pinnacle quote is currently stored for this event.")
+
+    if supabase_configured():
+        try:
+            movement_rows = list_odds_snapshots(eid, "Moneyline")
+        except Exception as exc:
+            movement_rows = []
+            st.caption(f"Persistent odds history unavailable: {exc}")
+        if movement_rows:
+            movement = pd.DataFrame(movement_rows)
+            movement["captured_at"] = pd.to_datetime(movement["captured_at"], utc=True, errors="coerce")
+            movement["odds_a"] = pd.to_numeric(movement["odds_a"], errors="coerce")
+            movement["odds_b"] = pd.to_numeric(movement["odds_b"], errors="coerce")
+            movement = movement.dropna(subset=["captured_at"]).sort_values("captured_at")
+            if not movement.empty:
+                first_a, latest_a = float(movement["odds_a"].iloc[0]), float(movement["odds_a"].iloc[-1])
+                first_b, latest_b = float(movement["odds_b"].iloc[0]), float(movement["odds_b"].iloc[-1])
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric(f"{a} first tracked", f"{first_a:.3f}")
+                m2.metric(f"{a} change", f"{latest_a / first_a - 1:+.2%}")
+                m3.metric(f"{b} first tracked", f"{first_b:.3f}")
+                m4.metric(f"{b} change", f"{latest_b / first_b - 1:+.2%}")
+                chart = movement.set_index("captured_at")[["odds_a", "odds_b"]].rename(
+                    columns={"odds_a": a, "odds_b": b}
+                )
+                st.line_chart(chart)
+                st.caption(
+                    "This history is saved in Supabase. After match start, the last pre-start price is frozen as the Pinnacle close "
+                    "and used for CLV."
+                )
+        else:
+            st.caption("No persistent Pinnacle price changes have been captured for this match yet.")
+
     key = os.getenv("MATCHSTAT_API_KEY", "").strip()
     if not key:
         try:
             key = str(st.secrets.get("MATCHSTAT_API_KEY", "")).strip()
         except Exception:
             key = ""
-    if key:
-        try:
-            movements = MatchstatClient(api_key=key, min_interval_seconds=.61).last_ten_odds_movements(eid)
-            st.write("Matchstat odds-movement payload")
-            st.json(movements, expanded=False)
-        except Exception as exc:
-            st.caption(f"Matchstat odds-movement endpoint unavailable: {exc}")
-    st.caption("The live board saves Pinnacle snapshots; the final pre-start snapshot is the intended CLV close reference.")
+    with st.expander("Raw Matchstat odds-movement payload", expanded=False):
+        if key:
+            try:
+                movements = MatchstatClient(api_key=key, min_interval_seconds=.61).last_ten_odds_movements(eid)
+                st.json(movements, expanded=False)
+            except Exception as exc:
+                st.caption(f"Matchstat odds-movement endpoint unavailable: {exc}")
 
 st.warning("Model outputs are estimates, not certainty. Injuries, withdrawals, travel and late news still require review.")
