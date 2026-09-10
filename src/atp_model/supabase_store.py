@@ -158,6 +158,33 @@ def set_starting_bankroll(amount: float) -> float:
     return amount
 
 
+def get_tracking_mode() -> str:
+    """Return the persistent tracking mode. Percentage mode uses a normalized 100-point bankroll."""
+    try:
+        value = get_setting("tracking_mode")
+        if isinstance(value, dict):
+            value = value.get("mode")
+        text = str(value or "percentage").strip().lower()
+        return "currency" if text in {"currency", "cash", "bankroll", "cad"} else "percentage"
+    except Exception:
+        return "percentage"
+
+
+def set_tracking_mode(mode: str) -> str:
+    text = str(mode or "percentage").strip().lower()
+    normalized = "currency" if text in {"currency", "cash", "bankroll", "cad"} else "percentage"
+    set_setting("tracking_mode", normalized)
+    return normalized
+
+
+def effective_starting_bankroll() -> float | None:
+    # Percentage-only tracking does not need the user's real bankroll. We normalize
+    # the starting bankroll to 100.00 so stake amounts are internal bankroll points.
+    if get_tracking_mode() == "percentage":
+        return 100.0
+    return get_starting_bankroll()
+
+
 def list_bets() -> list[dict[str, Any]]:
     return _request("GET", "bets", params={"select": "*", "order": "created_at.asc"})
 
@@ -167,7 +194,7 @@ def list_predictions() -> list[dict[str, Any]]:
 
 
 def current_bankroll() -> float | None:
-    start = get_starting_bankroll()
+    start = effective_starting_bankroll()
     if start is None:
         return None
     try:
@@ -397,7 +424,7 @@ def settle_bet(bet_id: int, result: str, closing_odds: float | None = None) -> d
     close = float(closing_odds) if closing_odds not in (None, 0) else None
     clv = odds / close - 1.0 if close and close > 1.0 and odds > 1.0 else None
 
-    start = get_starting_bankroll()
+    start = effective_starting_bankroll()
     all_bets = list_bets()
     realized_before = sum(
         float(x.get("profit_loss") or 0.0)
