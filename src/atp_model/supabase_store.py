@@ -193,6 +193,76 @@ def list_predictions() -> list[dict[str, Any]]:
     return _request("GET", "predictions", params={"select": "*", "order": "created_at.asc"})
 
 
+def list_odds_snapshots(match_id: str | None = None, market: str | None = None) -> list[dict[str, Any]]:
+    params: dict[str, Any] = {"select": "*", "order": "captured_at.asc"}
+    if match_id:
+        params["match_id"] = f"eq.{match_id}"
+    if market:
+        params["market"] = f"eq.{market}"
+    return _request("GET", "odds_snapshots", params=params)
+
+
+def _latest_odds_snapshot(match_id: str, market: str) -> dict[str, Any] | None:
+    rows = _request(
+        "GET",
+        "odds_snapshots",
+        params={
+            "select": "*",
+            "match_id": f"eq.{match_id}",
+            "market": f"eq.{market}",
+            "order": "captured_at.desc",
+            "limit": 1,
+        },
+    )
+    return rows[0] if rows else None
+
+
+def record_odds_snapshot(
+    *,
+    match_id: str,
+    match_date: str | None,
+    market: str,
+    player_a: str,
+    player_b: str,
+    selection_a: str,
+    selection_b: str,
+    odds_a: float | None,
+    odds_b: float | None,
+    source: str | None = None,
+    captured_at: str | None = None,
+) -> int | None:
+    """Persist a Pinnacle price change. Unchanged consecutive quotes are deduplicated."""
+    try:
+        oa = float(odds_a) if odds_a not in (None, "") else None
+        ob = float(odds_b) if odds_b not in (None, "") else None
+    except Exception:
+        return None
+    if oa is None or ob is None or oa <= 1.0 or ob <= 1.0:
+        return None
+    last = _latest_odds_snapshot(str(match_id), str(market))
+    if last:
+        try:
+            if abs(float(last.get("odds_a")) - oa) < 1e-9 and abs(float(last.get("odds_b")) - ob) < 1e-9:
+                return int(last["id"])
+        except Exception:
+            pass
+    payload = {
+        "captured_at": captured_at or datetime.now(timezone.utc).isoformat(),
+        "match_id": str(match_id),
+        "match_date": match_date,
+        "market": str(market),
+        "player_a": player_a,
+        "player_b": player_b,
+        "selection_a": selection_a,
+        "selection_b": selection_b,
+        "odds_a": oa,
+        "odds_b": ob,
+        "source": source or "Pinnacle",
+    }
+    rows = _request("POST", "odds_snapshots", payload=payload, prefer="return=representation")
+    return int(rows[0]["id"]) if rows else None
+
+
 def current_bankroll() -> float | None:
     start = effective_starting_bankroll()
     if start is None:
@@ -217,7 +287,7 @@ def _prediction_lookup(match_id: str, market: str, model_version: str) -> list[d
         "GET",
         "predictions",
         params={
-            "select": "id",
+            "select": "*",
             "match_id": f"eq.{match_id}",
             "market": f"eq.{market}",
             "model_version": f"eq.{model_version}",
@@ -227,19 +297,64 @@ def _prediction_lookup(match_id: str, market: str, model_version: str) -> list[d
 
 
 def upsert_prediction(payload: dict[str, Any]) -> int:
+    """Store one immutable model forecast per match/market/version and refresh only its market price.
+
+    The model probability/pick is frozen on first capture so later odds or data refreshes
+    cannot rewrite history. Pinnacle latest/close fields continue updating separately.
+    """
     match_id = str(payload.get("match_id") or "")
     market = str(payload.get("market") or "")
     model_version = str(payload.get("model_version") or "")
     if not match_id or not market or not model_version:
         raise ValueError("Prediction requires match_id, market and model_version")
+
+    now = datetime.now(timezone.utc).isoformat()
     existing = _prediction_lookup(match_id, market, model_version)
+    current_price = payload.get("latest_odds")
+    try:
+        current_price = float(current_price) if current_price not in (None, "") else None
+    except Exception:
+        current_price = None
+
     if existing:
-        pid = int(existing[0]["id"])
-        _request("PATCH", "predictions", params={"id": f"eq.{pid}"}, payload=payload)
+        row = existing[0]
+        pid = int(row["id"])
+        if row.get("actual_result") is not None:
+            return pid
+
+        opening = row.get("opening_odds")
+        if opening in (None, "") and current_price and current_price > 1.0:
+            opening = current_price
+
+        # Freeze the original forecast. Only backfill new v0.3.6 fields on legacy rows.
+        update: dict[str, Any] = {
+            "opening_odds": opening,
+            "first_price_at": row.get("first_price_at") or (now if opening else None),
+        }
+        for key in ("predicted_selection", "predicted_probability"):
+            if row.get(key) in (None, "") and payload.get(key) not in (None, ""):
+                update[key] = payload.get(key)
+
+        if current_price and current_price > 1.0:
+            update["latest_odds"] = current_price
+            update["latest_price_at"] = now
+            if opening:
+                try:
+                    update["odds_change"] = current_price / float(opening) - 1.0
+                except Exception:
+                    pass
+        _request("PATCH", "predictions", params={"id": f"eq.{pid}"}, payload=update)
         return pid
-    rows = _request("POST", "predictions", payload=payload, prefer="return=representation")
+
+    insert = dict(payload)
+    if current_price and current_price > 1.0:
+        insert["opening_odds"] = current_price
+        insert["latest_odds"] = current_price
+        insert["first_price_at"] = now
+        insert["latest_price_at"] = now
+        insert["odds_change"] = 0.0
+    rows = _request("POST", "predictions", payload=insert, prefer="return=representation")
     if not rows:
-        # Insert succeeded but representation was suppressed by project settings.
         rows = _prediction_lookup(match_id, market, model_version)
     if not rows:
         raise RuntimeError("Prediction was inserted but its id could not be recovered")
@@ -263,6 +378,15 @@ def prediction_payload_from_detail(detail: dict[str, Any], model_version: str, m
 
     if market == "Total Sets 3.5":
         sets = detail.get("sets") or {}
+        p_over = sets.get("probability_over35")
+        p_under = sets.get("probability_under35")
+        try:
+            over_is_pick = float(p_over) >= float(p_under)
+        except Exception:
+            over_is_pick = True
+        predicted_selection = "Over 3.5" if over_is_pick else "Under 3.5"
+        predicted_probability = p_over if over_is_pick else p_under
+        current_price = sets.get("odds_over35") if over_is_pick else sets.get("odds_under35")
         return {
             "match_id": str(event.get("id") or ""),
             "match_date": match_date,
@@ -275,17 +399,29 @@ def prediction_payload_from_detail(detail: dict[str, Any], model_version: str, m
             "player_b": result.get("player_b"),
             "market": market,
             "selection": "Over 3.5",
-            "model_probability": sets.get("probability_over35"),
+            "model_probability": p_over,
             "model_fair_odds": sets.get("fair_odds_over35"),
             "pinnacle_odds": sets.get("odds_over35"),
             "pinnacle_no_vig_probability": sets.get("market_probability_over35"),
             "edge": sets.get("edge_over35"),
             "expected_value": sets.get("ev_over35"),
             "court_speed": result.get("court_speed"),
+            "predicted_selection": predicted_selection,
+            "predicted_probability": predicted_probability,
+            "latest_odds": current_price,
         }
 
     moneyline = quote.get("moneyline")
-    odds_a = moneyline[0] if moneyline and len(moneyline) == 2 else None
+    odds_a, odds_b = moneyline if moneyline and len(moneyline) == 2 else (None, None)
+    p_a = result.get("probability_a")
+    p_b = result.get("probability_b")
+    try:
+        a_is_pick = float(p_a) >= float(p_b)
+    except Exception:
+        a_is_pick = True
+    predicted_selection = result.get("player_a") if a_is_pick else result.get("player_b")
+    predicted_probability = p_a if a_is_pick else p_b
+    current_price = odds_a if a_is_pick else odds_b
     return {
         "match_id": str(event.get("id") or ""),
         "match_date": match_date,
@@ -298,22 +434,68 @@ def prediction_payload_from_detail(detail: dict[str, Any], model_version: str, m
         "player_b": result.get("player_b"),
         "market": "Moneyline",
         "selection": result.get("player_a"),
-        "model_probability": result.get("probability_a"),
+        "model_probability": p_a,
         "model_fair_odds": result.get("fair_odds_a"),
         "pinnacle_odds": odds_a,
         "pinnacle_no_vig_probability": result.get("market_probability_a") if moneyline else None,
         "edge": result.get("edge_a") if moneyline else None,
         "expected_value": result.get("ev_a") if moneyline else None,
         "court_speed": result.get("court_speed"),
+        "predicted_selection": predicted_selection,
+        "predicted_probability": predicted_probability,
+        "latest_odds": current_price,
     }
 
 
 def record_detail_predictions(detail: dict[str, Any], model_version: str) -> list[int]:
-    ids = [upsert_prediction(prediction_payload_from_detail(detail, model_version, "Moneyline"))]
-    sets = detail.get("sets") or {}
+    """Persist every model forecast plus each observed Pinnacle price change."""
     result = detail.get("result") or {}
+    event = detail.get("event") or {}
+    quote = detail.get("quote") or {}
+    sets = detail.get("sets") or {}
+    start = event.get("startTimestamp")
+    match_date = None
+    try:
+        match_date = datetime.fromtimestamp(float(start), tz=timezone.utc).isoformat() if start else None
+    except Exception:
+        match_date = None
+    match_id = str(event.get("id") or "")
+    player_a = str(result.get("player_a") or "")
+    player_b = str(result.get("player_b") or "")
+    source = str(quote.get("source") or "Pinnacle")
+
+    ids = [upsert_prediction(prediction_payload_from_detail(detail, model_version, "Moneyline"))]
+    ml = quote.get("moneyline")
+    if ml and len(ml) == 2:
+        record_odds_snapshot(
+            match_id=match_id,
+            match_date=match_date,
+            market="Moneyline",
+            player_a=player_a,
+            player_b=player_b,
+            selection_a=player_a,
+            selection_b=player_b,
+            odds_a=ml[0],
+            odds_b=ml[1],
+            source=source,
+        )
+
     if sets.get("available") and float(result.get("best_of", 3) or 3) >= 5:
         ids.append(upsert_prediction(prediction_payload_from_detail(detail, model_version, "Total Sets 3.5")))
+        oa, ob = sets.get("odds_over35"), sets.get("odds_under35")
+        if oa not in (None, "") and ob not in (None, ""):
+            record_odds_snapshot(
+                match_id=match_id,
+                match_date=match_date,
+                market="Total Sets 3.5",
+                player_a=player_a,
+                player_b=player_b,
+                selection_a="Over 3.5",
+                selection_b="Under 3.5",
+                odds_a=oa,
+                odds_b=ob,
+                source=str(quote.get("sets35_source") or source),
+            )
     return ids
 
 
@@ -331,6 +513,66 @@ def update_prediction_outcome(prediction_id: int, actual_result: float, *, settl
             "settled_at": settled_at or datetime.now(timezone.utc).isoformat(),
         },
     )
+
+
+
+def _snapshot_price_for_prediction(prediction: dict[str, Any], snapshot: dict[str, Any]) -> float | None:
+    predicted = str(prediction.get("predicted_selection") or "").strip()
+    market = str(prediction.get("market") or "")
+    if market == "Moneyline":
+        if predicted and predicted == str(snapshot.get("selection_a") or ""):
+            return float(snapshot.get("odds_a"))
+        if predicted and predicted == str(snapshot.get("selection_b") or ""):
+            return float(snapshot.get("odds_b"))
+        p = float(prediction.get("model_probability") or 0.5)
+        return float(snapshot.get("odds_a") if p >= 0.5 else snapshot.get("odds_b"))
+    if market == "Total Sets 3.5":
+        if predicted.casefold().startswith("under"):
+            return float(snapshot.get("odds_b"))
+        return float(snapshot.get("odds_a"))
+    return None
+
+
+def finalize_prediction_close(prediction_id: int, closing_odds: float, *, captured_at: str | None = None) -> None:
+    rows = _request("GET", "predictions", params={"select": "*", "id": f"eq.{int(prediction_id)}", "limit": 1})
+    if not rows:
+        return
+    pred = rows[0]
+    close = float(closing_odds)
+    if close <= 1.0:
+        return
+    opening = pred.get("opening_odds")
+    try:
+        opening_f = float(opening) if opening not in (None, "") else None
+    except Exception:
+        opening_f = None
+    update: dict[str, Any] = {
+        "latest_odds": close,
+        "closing_odds": close,
+        "latest_price_at": captured_at or datetime.now(timezone.utc).isoformat(),
+    }
+    if opening_f and opening_f > 1.0:
+        update["odds_change"] = close / opening_f - 1.0
+        update["clv"] = opening_f / close - 1.0
+    _request("PATCH", "predictions", params={"id": f"eq.{int(prediction_id)}"}, payload=update)
+
+
+def last_pre_start_odds_snapshot(match_id: str, market: str, match_date: str | None) -> dict[str, Any] | None:
+    if not match_date:
+        return None
+    rows = _request(
+        "GET",
+        "odds_snapshots",
+        params={
+            "select": "*",
+            "match_id": f"eq.{match_id}",
+            "market": f"eq.{market}",
+            "captured_at": f"lt.{match_date}",
+            "order": "captured_at.desc",
+            "limit": 1,
+        },
+    )
+    return rows[0] if rows else None
 
 
 def update_bet_closing_odds(bet_id: int, closing_odds: float) -> None:
