@@ -317,6 +317,35 @@ def record_detail_predictions(detail: dict[str, Any], model_version: str) -> lis
     return ids
 
 
+
+def update_prediction_outcome(prediction_id: int, actual_result: float, *, settled_at: str | None = None) -> None:
+    actual = float(actual_result)
+    if actual not in {0.0, 1.0}:
+        raise ValueError("actual_result must be 0 or 1")
+    _request(
+        "PATCH",
+        "predictions",
+        params={"id": f"eq.{int(prediction_id)}"},
+        payload={
+            "actual_result": actual,
+            "settled_at": settled_at or datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+
+def update_bet_closing_odds(bet_id: int, closing_odds: float) -> None:
+    close = float(closing_odds)
+    if close <= 1.0:
+        raise ValueError("closing_odds must be greater than 1.00")
+    # Pre-match worker may update this repeatedly. Once profit_loss is non-null the
+    # bet is already settled and its closing price must remain frozen.
+    _request(
+        "PATCH",
+        "bets",
+        params={"id": f"eq.{int(bet_id)}", "profit_loss": "is.null"},
+        payload={"closing_odds": close},
+    )
+
 def find_open_bet(match_id: str, market: str, selection: str) -> dict[str, Any] | None:
     rows = _request(
         "GET",
