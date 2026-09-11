@@ -636,6 +636,15 @@ with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
                 quote["sets35_error"] = None
 
         has_sets_price = bool(sets.get("odds_over35") and sets.get("odds_under35"))
+        try:
+            most_likely_sets = "Over 3.5" if float(sets.get("probability_over35", 0)) >= float(sets.get("probability_under35", 0)) else "Under 3.5"
+            most_likely_sets_p = max(float(sets.get("probability_over35", 0)), float(sets.get("probability_under35", 0)))
+            st.info(
+                f"**Most likely outcome:** {most_likely_sets} ({most_likely_sets_p:.1%}). "
+                "**Best value bet is separate** and can be the opposite side when Pinnacle's price creates positive EV."
+            )
+        except Exception:
+            pass
         s1, s2, s3, s4 = st.columns(4)
         s1.metric("Model P(Over 3.5)", f"{sets['probability_over35']:.1%}")
         s2.metric("Model fair odds — Over", f"{sets['fair_odds_over35']:.2f}")
@@ -659,7 +668,7 @@ with st.expander("Grand Slam O/U 3.5 sets", expanded=True):
             if sets.get("recommended_market") != "No bet":
                 stake = _tracking_bankroll() * float(sets.get("recommended_quarter_kelly", 0))
                 st.success(
-                    f"**{sets['recommended_market']}** · EV {sets.get('recommended_ev', 0):+.1%} · "
+                    f"**Best value bet: {sets['recommended_market']}** · EV {sets.get('recommended_ev', 0):+.1%} · "
                     f"edge {sets.get('recommended_edge', 0):+.1%} · quarter-Kelly "
                     f"{sets.get('recommended_quarter_kelly', 0):.2%} · "
                     + (f"{sets.get('recommended_quarter_kelly', 0):.2%} bankroll" if _tracking_mode() == "percentage" else f"CA${stake:,.2f}")
