@@ -256,18 +256,39 @@ def live_board():
 
     # Table-like clickable rows. The match name itself is the navigation control,
     # so every event can be opened directly without a second picker underneath.
-    h1, h2, h3, h4, h5, h6 = st.columns([1.0, 1.5, 3.2, 1.25, 1.45, 1.7])
+    h1, h2, h3, h4, h5, h6 = st.columns([1.0, 1.45, 3.0, 1.55, 1.35, 2.05])
     h1.markdown("**Start**")
     h2.markdown("**Tournament**")
     h3.markdown("**Match**")
-    h4.markdown("**Model**")
-    h5.markdown("**Pinnacle**")
-    h6.markdown("**Recommendation**")
+    h4.markdown("**Most likely outcome**")
+    h5.markdown("**Pinnacle ML**")
+    h6.markdown("**What to bet / value bet**")
 
     for i, r in shown.iterrows():
         eid = str(r["Event ID"])
+        match_detail = detail.get(eid, {})
+        result = match_detail.get("result") or {}
+        quote = match_detail.get("quote") or {}
+        sets = match_detail.get("sets") or {}
+
+        # Keep prediction and betting decision separate. The most-likely outcome is
+        # simply the higher model probability. The value bet is whichever available
+        # market clears the current EV + edge thresholds, and can be the opposite side.
+        try:
+            pa = float(result.get("probability_a"))
+            pb = float(result.get("probability_b"))
+            if pa >= pb:
+                likely_name = str(result.get("player_a") or "")
+                likely_prob = pa
+            else:
+                likely_name = str(result.get("player_b") or "")
+                likely_prob = pb
+        except Exception:
+            likely_name = str(r.get("ML pick") or "—")
+            likely_prob = float(r.get("ML pick P")) if pd.notna(r.get("ML pick P")) else float("nan")
+
         with st.container(border=True):
-            c1, c2, c3, c4, c5, c6 = st.columns([1.0, 1.5, 3.2, 1.25, 1.45, 1.7])
+            c1, c2, c3, c4, c5, c6 = st.columns([1.0, 1.45, 3.0, 1.55, 1.35, 2.05])
             c1.write(str(r["Start"]))
             c2.write(f"{r['Tournament']}\n\n{r['Level label']} · BO{int(r['BO'])}")
             with c3:
@@ -276,23 +297,64 @@ def live_board():
                         st.session_state["selected_event_id"] = eid
                         st.session_state["selected_match_detail"] = detail[eid]
                         st.switch_page("pages/1_Match_Detail.py")
-            c4.write(f"{r['ML pick']}\n\n{float(r['ML pick P']):.1%}" if pd.notna(r['ML pick P']) else str(r['ML pick']))
-            if bool(r.get("Pinnacle available", False)):
-                q = detail.get(eid, {}).get("quote", {}).get("moneyline")
-                if q:
-                    c5.write(f"{q[0]:.3f} / {q[1]:.3f}")
-                else:
-                    c5.write("Available")
+
+            if pd.notna(likely_prob):
+                c4.write(f"**{likely_name}**\n\n{likely_prob:.1%}")
+            else:
+                c4.write(likely_name or "—")
+
+            q = quote.get("moneyline")
+            if q and len(q) == 2:
+                c5.write(f"{float(q[0]):.3f} / {float(q[1]):.3f}")
             else:
                 c5.write("Unavailable")
+
             if str(r["Best market"]) != "No bet":
+                market_label = "ML" if str(r["Best market"]) == "Moneyline" else "O/U 3.5 sets"
                 c6.write(
-                    f"**{r['Best selection']}**\n\n"
-                    f"EV {float(r['Best EV']):+.1%} · Kelly {float(r['Best Kelly %']):.2%}\n\n"
-                    + (f"{float(r['Best Kelly %']):.2%} bankroll" if tracking_mode == "percentage" else f"CA${float(r['Best stake CA$']):,.2f}")
+                    f"**BET: {r['Best selection']}** · {market_label}\n\n"
+                    f"EV {float(r['Best EV']):+.1%} · edge {float(r['Best Edge']):+.1%}\n\n"
+                    f"Quarter-Kelly {float(r['Best Kelly %']):.2%} · "
+                    + (f"stake {float(r['Best Kelly %']):.2%} bankroll" if tracking_mode == "percentage" else f"stake CA${float(r['Best stake CA$']):,.2f}")
                 )
             else:
-                c6.write("No bet")
+                # Explain why the favorite is not automatically a bet. Show the best
+                # currently observed candidate even when it misses the user's thresholds.
+                candidates = []
+                if q and len(q) == 2:
+                    for side, name, ev_key, edge_key in (
+                        (0, result.get("player_a"), "ev_a", "edge_a"),
+                        (1, result.get("player_b"), "ev_b", "edge_b"),
+                    ):
+                        try:
+                            ev = float(result.get(ev_key))
+                            edge = float(result.get(edge_key))
+                            if pd.notna(ev) and pd.notna(edge):
+                                candidates.append((ev, edge, str(name), "ML"))
+                        except Exception:
+                            pass
+                if sets and sets.get("available") and sets.get("odds_over35") and sets.get("odds_under35"):
+                    for name, ev_key, edge_key in (
+                        ("Over 3.5", "ev_over35", "edge_over35"),
+                        ("Under 3.5", "ev_under35", "edge_under35"),
+                    ):
+                        try:
+                            ev = float(sets.get(ev_key))
+                            edge = float(sets.get(edge_key))
+                            if pd.notna(ev) and pd.notna(edge):
+                                candidates.append((ev, edge, name, "O/U 3.5 sets"))
+                        except Exception:
+                            pass
+                if candidates:
+                    best_ev_raw, best_edge_raw, best_name_raw, best_market_raw = max(candidates, key=lambda x: x[0])
+                    c6.write(
+                        f"**NO BET at current price**\n\n"
+                        f"Best candidate: {best_name_raw} · {best_market_raw}\n\n"
+                        f"EV {best_ev_raw:+.1%} · edge {best_edge_raw:+.1%} "
+                        f"(needs ≥{min_ev:.1%} EV and ≥{min_edge:.1%} edge)"
+                    )
+                else:
+                    c6.write("**NO BET**\n\nNo usable Pinnacle price yet.")
 
     with st.expander("Slate diagnostics"):
         st.json(diag)
