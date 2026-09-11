@@ -1,31 +1,31 @@
 {
-  "training_matches": 70325,
-  "test_matches": 2736,
+  "training_matches": 12793,
+  "test_matches": 2735,
   "holdout": "2025",
-  "selected_model": "logistic_regression",
+  "selected_model": "hist_gradient_boosting",
   "selection_metric": "lowest chronological holdout log loss, then Brier score",
   "candidate_metrics": {
     "logistic_regression": {
-      "accuracy": 0.6491228070175439,
-      "log_loss": 0.6116255540646697,
-      "brier": 0.2128508702269625,
-      "roc_auc": 0.7198256882694939,
-      "ece_10bin": 0.028859476350552284
+      "accuracy": 0.6508226691042047,
+      "log_loss": 0.6159031564625014,
+      "brier": 0.21456837394380684,
+      "roc_auc": 0.7165386120908901,
+      "ece_10bin": 0.029673716474982372
     },
     "hist_gradient_boosting": {
-      "accuracy": 0.6502192982456141,
-      "log_loss": 0.6126355876627704,
-      "brier": 0.21310679616601222,
-      "roc_auc": 0.7193725418946648,
-      "ece_10bin": 0.02814028411001258
+      "accuracy": 0.6559414990859233,
+      "log_loss": 0.615100766414986,
+      "brier": 0.21382010909259982,
+      "roc_auc": 0.7187874992780887,
+      "ece_10bin": 0.022709875148162948
     }
   },
-  "accuracy": 0.6491228070175439,
-  "log_loss": 0.6116255540646697,
-  "brier": 0.2128508702269625,
-  "roc_auc": 0.7198256882694939,
-  "ece_10bin": 0.028859476350552284,
-  "latest_data_date": "2026-09-09",
+  "accuracy": 0.6559414990859233,
+  "log_loss": 0.615100766414986,
+  "brier": 0.21382010909259982,
+  "roc_auc": 0.7187874992780887,
+  "ece_10bin": 0.022709875148162948,
+  "latest_data_date": "2026-09-11",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -166,17 +166,17 @@
     "players": 1002,
     "rows": 56850
   },
-  "court_speed_rows": 2055,
+  "court_speed_rows": 495,
   "court_speed_source": "Tennis Abstract external surface-speed table",
   "pipeline_version": "5.0-v03-event-level-speedfit-automated-slate",
   "sets_model": {
     "available": true,
-    "training_matches": 12049,
+    "training_matches": 2335,
     "test_matches": 479,
     "holdout": "2025",
-    "selected_model": "hist_gradient_boosting",
-    "log_loss": 0.6794737978140966,
-    "brier": 0.24296399571162858,
+    "selected_model": "logistic_regression",
+    "log_loss": 0.6818122142073115,
+    "brier": 0.24412014994861286,
     "accuracy": 0.5908141962421712,
     "features": [
       "elo_closeness",
