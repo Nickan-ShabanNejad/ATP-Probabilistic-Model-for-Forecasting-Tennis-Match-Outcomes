@@ -438,3 +438,148 @@ def test_prediction_snapshot_price_uses_model_selected_side():
     pred = {"market": "Moneyline", "predicted_selection": "Player B", "model_probability": 0.31}
     snap = {"selection_a": "Player A", "selection_b": "Player B", "odds_a": 4.5, "odds_b": 1.22}
     assert np.isclose(_snapshot_price_for_prediction(pred, snap), 1.22)
+
+
+def test_tracking_canonical_prediction_key_ignores_provider_event_id_and_player_order():
+    from atp_model.supabase_store import canonical_prediction_key
+
+    a = {
+        "match_id": "extend-123",
+        "match_date": "2026-09-11T23:00:00+00:00",
+        "model_version": "v0.3.6",
+        "market": "Moneyline",
+        "player_a": "Frances Tiafoe",
+        "player_b": "Ben Shelton",
+    }
+    b = {
+        "match_id": "core-999",
+        "match_date": "2026-09-11T23:10:00+00:00",
+        "model_version": "v0.3.6",
+        "market": "Moneyline",
+        "player_a": "Ben Shelton",
+        "player_b": "Frances Tiafoe",
+    }
+    assert canonical_prediction_key(a) == canonical_prediction_key(b)
+
+
+def test_tracking_coalesces_duplicate_capture_and_keeps_frozen_forecast():
+    from atp_model.supabase_store import coalesce_prediction_records
+
+    rows = [
+        {
+            "id": 1,
+            "created_at": "2026-09-11T15:00:00+00:00",
+            "match_id": "extend-123",
+            "match_date": "2026-09-11T23:00:00+00:00",
+            "model_version": "v0.3.6",
+            "market": "Moneyline",
+            "player_a": "Frances Tiafoe",
+            "player_b": "Ben Shelton",
+            "predicted_selection": "Ben Shelton",
+            "predicted_probability": 0.634,
+            "model_probability": 0.366,
+            "opening_odds": None,
+            "latest_odds": None,
+        },
+        {
+            "id": 2,
+            "created_at": "2026-09-11T16:00:00+00:00",
+            "match_id": "core-999",
+            "match_date": "2026-09-11T23:05:00+00:00",
+            "model_version": "v0.3.6",
+            "market": "Moneyline",
+            "player_a": "Frances Tiafoe",
+            "player_b": "Ben Shelton",
+            "predicted_selection": "Ben Shelton",
+            "predicted_probability": 0.625,
+            "model_probability": 0.375,
+            "opening_odds": 1.355,
+            "latest_odds": 1.355,
+            "first_price_at": "2026-09-11T16:00:00+00:00",
+            "latest_price_at": "2026-09-11T16:00:00+00:00",
+        },
+    ]
+    merged = coalesce_prediction_records(rows)
+    assert len(merged) == 1
+    row = merged[0]
+    assert row["id"] == 1
+    assert np.isclose(row["predicted_probability"], 0.634)
+    assert np.isclose(row["opening_odds"], 1.355)
+    assert row["duplicate_count"] == 2
+
+
+def test_totals_tracking_separates_most_likely_outcome_from_value_bet():
+    from atp_model.supabase_store import prediction_payload_from_detail
+
+    detail = {
+        "event": {"id": "m2", "startTimestamp": 1788996600, "round": "SF", "league": "US Open"},
+        "context": {"level": 5.0},
+        "quote": {},
+        "result": {
+            "player_a": "Frances Tiafoe", "player_b": "Ben Shelton",
+            "surface": "Hard", "court_speed": 1.20, "tournament": "US Open",
+            "tournament_level": 5.0, "best_of": 5,
+        },
+        "sets": {
+            "available": True,
+            "probability_over35": 0.571,
+            "probability_under35": 0.429,
+            "fair_odds_over35": 1 / 0.571,
+            "fair_odds_under35": 1 / 0.429,
+            "odds_over35": 1.51,
+            "odds_under35": 2.73,
+            "market_probability_over35": 0.644,
+            "market_probability_under35": 0.356,
+            "edge_over35": -0.073,
+            "edge_under35": 0.073,
+            "ev_over35": -0.138,
+            "ev_under35": 0.171,
+            "quarter_kelly_over35": 0.0,
+            "quarter_kelly_under35": 0.0248,
+            "recommended_market": "Under 3.5",
+            "recommended_edge": 0.073,
+            "recommended_ev": 0.171,
+            "recommended_quarter_kelly": 0.0248,
+        },
+    }
+
+    payload = prediction_payload_from_detail(detail, "vtest", "Total Sets 3.5")
+    assert payload["predicted_selection"] == "Over 3.5"
+    assert np.isclose(payload["predicted_probability"], 0.571)
+    assert payload["value_selection"] == "Under 3.5"
+    assert np.isclose(payload["value_probability"], 0.429)
+    assert np.isclose(payload["value_odds"], 2.73)
+    assert np.isclose(payload["value_edge"], 0.073)
+    assert np.isclose(payload["value_expected_value"], 0.171)
+
+
+def test_tracking_coalesce_preserves_first_actionable_value_signal():
+    from atp_model.supabase_store import coalesce_prediction_records
+
+    rows = [
+        {
+            "id": 10, "created_at": "2026-09-11T15:00:00+00:00",
+            "match_id": "extend-1", "match_date": "2026-09-11T23:00:00+00:00",
+            "model_version": "v0.3.6", "market": "Total Sets 3.5",
+            "player_a": "Frances Tiafoe", "player_b": "Ben Shelton",
+            "predicted_selection": "Over 3.5", "predicted_probability": 0.606,
+            "model_probability": 0.606,
+        },
+        {
+            "id": 11, "created_at": "2026-09-11T16:00:00+00:00",
+            "match_id": "core-2", "match_date": "2026-09-11T23:05:00+00:00",
+            "model_version": "v0.3.6", "market": "Total Sets 3.5",
+            "player_a": "Frances Tiafoe", "player_b": "Ben Shelton",
+            "predicted_selection": "Over 3.5", "predicted_probability": 0.571,
+            "model_probability": 0.571,
+            "value_selection": "Under 3.5", "value_probability": 0.429,
+            "value_odds": 2.73, "value_edge": 0.073, "value_expected_value": 0.171,
+            "value_kelly": 0.0248, "value_captured_at": "2026-09-11T16:00:00+00:00",
+        },
+    ]
+    merged = coalesce_prediction_records(rows)
+    assert len(merged) == 1
+    assert merged[0]["predicted_selection"] == "Over 3.5"
+    assert np.isclose(merged[0]["predicted_probability"], 0.606)
+    assert merged[0]["value_selection"] == "Under 3.5"
+    assert np.isclose(merged[0]["value_odds"], 2.73)
