@@ -536,13 +536,13 @@ with value_bets_tab:
             "value_edge": "Edge",
             "value_expected_value": "EV",
             "value_kelly": "Quarter-Kelly",
-            "Value result": "Result",
+            "Value result": "Value bet result",
             "model_version": "Version",
         })
         value_cols = [
             "Start", "Signal captured", "Tournament", "Match", "Market",
             "Most likely outcome", "Outcome confidence", "Value bet", "Model P(value side)",
-            "Pinnacle at signal", "Edge", "EV", "Quarter-Kelly", "Value close", "Value CLV", "Result", "Version",
+            "Pinnacle at signal", "Edge", "EV", "Quarter-Kelly", "Value close", "Value CLV", "Value bet result", "Version",
         ]
         value_cols = [c for c in value_cols if c in display_value.columns]
         st.dataframe(
