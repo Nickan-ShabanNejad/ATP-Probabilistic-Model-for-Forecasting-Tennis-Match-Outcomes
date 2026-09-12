@@ -1,13 +1,19 @@
 {
-  "updated_at_utc": "2026-09-11T13:38:47.524962+00:00",
+  "updated_at_utc": "2026-09-12T12:55:19.113042+00:00",
   "pipeline_version": "5.0-v03-live-slate",
   "matches": {
     "years": {
       "2000": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2000.csv",
+          "bytes": 694177,
+          "sha256": "75d9d51730a462c76fd9e9ddbea69e52f594ab4fcec9eca310e6076312381bbb",
+          "downloaded_at_utc": "2026-09-12T12:50:29.583241+00:00",
+          "valid": true,
+          "rows": 3378,
+          "latest_tourney_date": "20001208",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -15,13 +21,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20001208"
       },
       "2001": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2001.csv",
+          "bytes": 682631,
+          "sha256": "34004bf31625c87c0bd70b222446bcd905fe04baa208caae59942de00638727e",
+          "downloaded_at_utc": "2026-09-12T12:50:30.638627+00:00",
+          "valid": true,
+          "rows": 3311,
+          "latest_tourney_date": "20011130",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -29,13 +41,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20011130"
       },
       "2002": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2002.csv",
+          "bytes": 662394,
+          "sha256": "1d0ea099fb027fbf5570a623c8db76c0fc40a0e9ae0f51b62e77ff27f710976d",
+          "downloaded_at_utc": "2026-09-12T12:50:31.671423+00:00",
+          "valid": true,
+          "rows": 3213,
+          "latest_tourney_date": "20021129",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -43,13 +61,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20021129"
       },
       "2003": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2003.csv",
+          "bytes": 663309,
+          "sha256": "84b3731d9767a0dc83a827d8415479216d319db749659e7506899ff576d992cf",
+          "downloaded_at_utc": "2026-09-12T12:50:32.561512+00:00",
+          "valid": true,
+          "rows": 3218,
+          "latest_tourney_date": "20031128",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -57,13 +81,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20031128"
       },
       "2004": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2004.csv",
+          "bytes": 675548,
+          "sha256": "a89091ecefa858e41190eb85e55405440447dbb004f50f675ae8aa2b28f4e21f",
+          "downloaded_at_utc": "2026-09-12T12:50:33.425457+00:00",
+          "valid": true,
+          "rows": 3288,
+          "latest_tourney_date": "20041203",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -71,13 +101,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20041203"
       },
       "2005": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2005.csv",
+          "bytes": 672767,
+          "sha256": "0517e2888d97387042285aae428cb8f6d0b22846a61e721fcecc7cb3eb49ff00",
+          "downloaded_at_utc": "2026-09-12T12:50:34.089606+00:00",
+          "valid": true,
+          "rows": 3263,
+          "latest_tourney_date": "20051202",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -85,13 +121,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20051202"
       },
       "2006": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2006.csv",
+          "bytes": 673502,
+          "sha256": "acbb393c12f6bd9b3d6e7d71700db9676abbab98b6f937a6603d5cad365e271e",
+          "downloaded_at_utc": "2026-09-12T12:50:34.742083+00:00",
+          "valid": true,
+          "rows": 3267,
+          "latest_tourney_date": "20061201",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -99,13 +141,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20061201"
       },
       "2007": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2007.csv",
+          "bytes": 657281,
+          "sha256": "f557cc49ba7bb436641cbdc2d7d2fa05afa6ce45f83c28a4452b1189f554827b",
+          "downloaded_at_utc": "2026-09-12T12:50:35.835180+00:00",
+          "valid": true,
+          "rows": 3192,
+          "latest_tourney_date": "20071130",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -113,13 +161,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20071130"
       },
       "2008": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2008.csv",
+          "bytes": 643627,
+          "sha256": "51b2f23e0a3a620b4e080c46469076f5eff37fe51eff2cd7a127f68d3fc597d2",
+          "downloaded_at_utc": "2026-09-12T12:50:36.504621+00:00",
+          "valid": true,
+          "rows": 3123,
+          "latest_tourney_date": "20081121",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -127,13 +181,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20081121"
       },
       "2009": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2009.csv",
+          "bytes": 638702,
+          "sha256": "0311f6bfcdb6cbeed8add108262d131171493004be9f88b127320f9cdbcd541b",
+          "downloaded_at_utc": "2026-09-12T12:50:37.508172+00:00",
+          "valid": true,
+          "rows": 3085,
+          "latest_tourney_date": "20091204",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -141,13 +201,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20091204"
       },
       "2010": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2010.csv",
+          "bytes": 625772,
+          "sha256": "27fe66a5abbeadb451113b8119646494651a6d954892856173b49f697953b221",
+          "downloaded_at_utc": "2026-09-12T12:50:38.362888+00:00",
+          "valid": true,
+          "rows": 3030,
+          "latest_tourney_date": "20101203",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -155,13 +221,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20101203"
       },
       "2011": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2011.csv",
+          "bytes": 623639,
+          "sha256": "ec816cad779d0d31856c39f3c25f61b4c5c4df10c7245611c358e0c8de4f9236",
+          "downloaded_at_utc": "2026-09-12T12:50:39.417689+00:00",
+          "valid": true,
+          "rows": 3015,
+          "latest_tourney_date": "20111202",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -169,13 +241,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20111202"
       },
       "2012": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2012.csv",
+          "bytes": 619870,
+          "sha256": "7f299dc1c46e96bc81292c0dd8eed46ef1c37ff1a0dcef4e8b35866ffa310683",
+          "downloaded_at_utc": "2026-09-12T12:50:40.392816+00:00",
+          "valid": true,
+          "rows": 3009,
+          "latest_tourney_date": "20121116",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -183,13 +261,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20121116"
       },
       "2013": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2013.csv",
+          "bytes": 608175,
+          "sha256": "3011ef277a4d94f5e722193dda4d71d5a77bf2d557a33233ea2329240ffa19bb",
+          "downloaded_at_utc": "2026-09-12T12:50:41.394171+00:00",
+          "valid": true,
+          "rows": 2944,
+          "latest_tourney_date": "20131115",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -197,13 +281,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20131115"
       },
       "2014": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2014.csv",
+          "bytes": 600128,
+          "sha256": "1e172cd272815584ab1b6e7e1fa9bd0f6e87618047da65ee8fcd36676dd2f492",
+          "downloaded_at_utc": "2026-09-12T12:50:42.276882+00:00",
+          "valid": true,
+          "rows": 2893,
+          "latest_tourney_date": "20141121",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -211,13 +301,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20141121"
       },
       "2015": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2015.csv",
+          "bytes": 609461,
+          "sha256": "0d156d21a70dd620e1a014aa589e034ff24a7478d24a5cdea5bdc984189c26e7",
+          "downloaded_at_utc": "2026-09-12T12:50:43.357018+00:00",
+          "valid": true,
+          "rows": 2945,
+          "latest_tourney_date": "20151127",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -225,13 +321,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20151127"
       },
       "2016": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2016.csv",
+          "bytes": 630407,
+          "sha256": "29e08902f11fd5400669e00c192f94329f7807beb43de41f2729c041ed71f617",
+          "downloaded_at_utc": "2026-09-12T12:50:44.015541+00:00",
+          "valid": true,
+          "rows": 2970,
+          "latest_tourney_date": "20161125",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -239,13 +341,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20161125"
       },
       "2017": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2017.csv",
+          "bytes": 622391,
+          "sha256": "286978b2f874734ad89b4d60dcbb81b5e94ee6398be80925a3f23915894585d2",
+          "downloaded_at_utc": "2026-09-12T12:50:44.888086+00:00",
+          "valid": true,
+          "rows": 2854,
+          "latest_tourney_date": "20171124",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -253,13 +361,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20171124"
       },
       "2018": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2018.csv",
+          "bytes": 621009,
+          "sha256": "97a22cbf3e967ec7ac1079a20c4a51061aff2f572ffc15e85cda12b62891efba",
+          "downloaded_at_utc": "2026-09-12T12:50:45.632328+00:00",
+          "valid": true,
+          "rows": 2926,
+          "latest_tourney_date": "20181123",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -267,13 +381,19 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20181123"
       },
       "2019": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "file unavailable",
-          "valid": false
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2019.csv",
+          "bytes": 590619,
+          "sha256": "9af50808abcb55e644de1d3f674077f18c8dea590ce933ba0a9ebdc029c1ea5b",
+          "downloaded_at_utc": "2026-09-12T12:50:46.297201+00:00",
+          "valid": true,
+          "rows": 2806,
+          "latest_tourney_date": "20191124",
+          "columns": 51
         },
         "jeff_sackmann": {
           "ok": false,
@@ -281,12 +401,15 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": null
+        "latest_tourney_date": "20191124"
       },
       "2020": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "2020.csv not found in live index; using cache if available",
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2020.csv",
+          "bytes": 310280,
+          "sha256": "959508f99f80b3f7f0c0f0029160ffa58f27813e19a63b1d0636a4f04a8ef125",
+          "downloaded_at_utc": "2026-09-12T12:50:46.863982+00:00",
           "valid": true,
           "rows": 1466,
           "latest_tourney_date": "20201116",
@@ -302,8 +425,11 @@
       },
       "2021": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "2021.csv not found in live index; using cache if available",
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2021.csv",
+          "bytes": 579480,
+          "sha256": "56f135106006a75ab8210ec654c3db598e177058599cb90477aac44acf1152e4",
+          "downloaded_at_utc": "2026-09-12T12:50:47.800808+00:00",
           "valid": true,
           "rows": 2735,
           "latest_tourney_date": "20211205",
@@ -319,8 +445,11 @@
       },
       "2022": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "2022.csv not found in live index; using cache if available",
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2022.csv",
+          "bytes": 615681,
+          "sha256": "bd5f95b95815c8c807afb204a5e89d21ed40520c2e9de1f0c73f376819437eb1",
+          "downloaded_at_utc": "2026-09-12T12:50:48.771232+00:00",
           "valid": true,
           "rows": 2918,
           "latest_tourney_date": "20221127",
@@ -336,8 +465,11 @@
       },
       "2023": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "2023.csv not found in live index; using cache if available",
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2023.csv",
+          "bytes": 633588,
+          "sha256": "df615751795c00b042f3b61159f6dd9e12971065090a330c586fb524e207d574",
+          "downloaded_at_utc": "2026-09-12T12:50:49.765363+00:00",
           "valid": true,
           "rows": 2942,
           "latest_tourney_date": "20231127",
@@ -353,8 +485,11 @@
       },
       "2024": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "2024.csv not found in live index; using cache if available",
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2024.csv",
+          "bytes": 656519,
+          "sha256": "8e6030eb9c3a2622a289377aa19977513cf01b4d5f60ecfcf1b68372702c62bc",
+          "downloaded_at_utc": "2026-09-12T12:50:50.520291+00:00",
           "valid": true,
           "rows": 3076,
           "latest_tourney_date": "20241218",
@@ -370,8 +505,11 @@
       },
       "2025": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "2025.csv not found in live index; using cache if available",
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2025.csv",
+          "bytes": 620171,
+          "sha256": "f10ff8ce35c705bcfe3c39abad89fbd502fa23050e703dc8e1ccb65aecc4ea88",
+          "downloaded_at_utc": "2026-09-12T12:50:51.493205+00:00",
           "valid": true,
           "rows": 2944,
           "latest_tourney_date": "20251222",
@@ -387,11 +525,14 @@
       },
       "2026": {
         "tennis_my_life": {
-          "ok": false,
-          "error": "2026.csv not found in live index; using cache if available",
+          "ok": true,
+          "url": "https://stats.tennismylife.org/data/2026.csv",
+          "bytes": 453797,
+          "sha256": "490e37cec9e2660d54dd968722d737c36379743d664fc30c6e2fa12cd08ddade",
+          "downloaded_at_utc": "2026-09-12T12:50:52.136309+00:00",
           "valid": true,
-          "rows": 136,
-          "latest_tourney_date": "20260117",
+          "rows": 2127,
+          "latest_tourney_date": "20260830",
           "columns": 51
         },
         "jeff_sackmann": {
@@ -400,14 +541,14 @@
           "reason": "JEFF_ATP_BASE_URL is not configured.",
           "rows": 0
         },
-        "latest_tourney_date": "20260117"
+        "latest_tourney_date": "20260830"
       }
     },
     "sources": {
       "TennisMyLife": {
         "available": true,
-        "successful_years": 7,
-        "failed_years": 20
+        "successful_years": 27,
+        "failed_years": 0
       },
       "Jeff Sackmann": {
         "available": false,
@@ -416,34 +557,34 @@
         "note": "Disabled because the public repository currently returns 404. Set JEFF_ATP_BASE_URL to re-enable it."
       }
     },
-    "master_rows": 25335,
-    "current_year_rows": 9264,
-    "latest_tourney_date": "20260911",
+    "master_rows": 87754,
+    "current_year_rows": 9963,
+    "latest_tourney_date": "20260912",
     "age_days": 0,
     "stale": false,
     "freshness_threshold_days": 7,
     "raw_rows_by_source": {
-      "TennisMyLife": 16217
+      "TennisMyLife": 79938
     },
     "selected_rows_by_source": {
-      "TennisMyLife": 16081,
-      "Matchstat": 9254
+      "TennisMyLife": 78478,
+      "Matchstat": 9276
     },
-    "duplicates_removed": 10,
+    "duplicates_removed": 20,
     "matchstat": {
       "raw_rows_by_source": {
-        "TennisMyLife": 16207,
-        "Matchstat": 9254
+        "TennisMyLife": 79918,
+        "Matchstat": 9276
       },
       "selected_rows_by_source": {
-        "TennisMyLife": 16081,
-        "Matchstat": 9254
+        "TennisMyLife": 78478,
+        "Matchstat": 9276
       },
-      "duplicates_removed": 126,
+      "duplicates_removed": 1440,
       "ok": true,
       "ranking_players_requested": 300,
-      "unique_match_records_downloaded": 9254,
-      "usable_match_rows": 9254,
+      "unique_match_records_downloaded": 9276,
+      "usable_match_rows": 9276,
       "player_failures": [],
       "player_failure_count": 0,
       "current_year": 2026
@@ -455,10 +596,10 @@
       "ok": true,
       "method": "Matchstat ATP singles rankings",
       "ranking_date": "20260831",
-      "ranking_age_days": 11,
+      "ranking_age_days": 12,
       "players": 300,
       "mapped_to_player_id": 300,
-      "warning": "Matchstat's ranking snapshot is 11 days old. Match data can still be current; treat displayed rankings as stale until the provider publishes a newer weekly snapshot."
+      "warning": "Matchstat's ranking snapshot is 12 days old. Match data can still be current; treat displayed rankings as stale until the provider publishes a newer weekly snapshot."
     }
   },
   "match_charting_project": {
@@ -467,7 +608,7 @@
       "url": "https://raw.githubusercontent.com/JeffSackmann/tennis_MatchChartingProject/master/charting-m-matches.csv",
       "bytes": 1141817,
       "sha256": "d8dce1ad8d12c04efa01da587441b54ece8e8100530660528312244f632efe80",
-      "downloaded_at_utc": "2026-09-11T13:38:47.966220+00:00",
+      "downloaded_at_utc": "2026-09-12T12:55:19.288145+00:00",
       "rows": 7566,
       "valid": true
     },
@@ -476,7 +617,7 @@
       "url": "https://raw.githubusercontent.com/JeffSackmann/tennis_MatchChartingProject/master/charting-m-stats-Overview.csv",
       "bytes": 6651805,
       "sha256": "9b08d763e1209dec276206998b96823731f0351ab9b86d25415a7e3dd313290c",
-      "downloaded_at_utc": "2026-09-11T13:38:48.937512+00:00",
+      "downloaded_at_utc": "2026-09-12T12:55:19.931647+00:00",
       "rows": 56850,
       "valid": true
     },
@@ -485,7 +626,7 @@
       "url": "https://raw.githubusercontent.com/JeffSackmann/tennis_MatchChartingProject/master/charting-m-stats-NetPoints.csv",
       "bytes": 6184262,
       "sha256": "239540c77767512921153a05d8e320450524b6a06976c5bf0d496268a2dee0e8",
-      "downloaded_at_utc": "2026-09-11T13:38:49.887008+00:00",
+      "downloaded_at_utc": "2026-09-12T12:55:20.319179+00:00",
       "rows": 59396,
       "valid": true
     },

@@ -105,10 +105,10 @@ ranking_date,ranking,player_id,player,ranking_points,normalized_name,matchstat_p
 20260831,104,D923,Damir Dzumhur,612,damir dzumhur,13447
 20260831,105,M0GZ,Giovanni Mpetshi Perricard,600,giovanni mpetshi perricard,71174
 20260831,106,O483,Christopher O'Connell,598,christopher o connell,24721
-20260831,107,ms:87512,Michael Zheng,590,michael zheng,87512
+20260831,107,Z0BZ,Michael Zheng,590,michael zheng,87512
 20260831,108,J0AZ,Kyrian Jacquet,581,kyrian jacquet,65904
 20260831,109,V0AM,Otto Virtanen,574,otto virtanen,55252
-20260831,110,ms:79068,Toby Samuel,567,toby samuel,79068
+20260831,110,S0TM,Toby Samuel,567,toby samuel,79068
 20260831,111,N0AM,Emilio Nava,561,emilio nava,56197
 20260831,112,S0JA,Eliot Spizzirri,557,eliot spizzirri,71083
 20260831,113,WB32,Yibing Wu,551,yibing wu,39310
@@ -143,7 +143,7 @@ ranking_date,ranking,player_id,player,ranking_points,normalized_name,matchstat_p
 20260831,142,C0H0,Arthur Cazaux,396,arthur cazaux,70873
 20260831,143,R09X,Jurij Rodionov,395,jurij rodionov,44555
 20260831,144,BS86,Tomas Barrios Vera,395,tomas barrios vera,30849
-20260831,145,ms:86351,Tom Gentzsch,393,tom gentzsch,86351
+20260831,145,G0IB,Tom Gentzsch,393,tom gentzsch,86351
 20260831,146,MK66,Mackenzie Mcdonald,390,mackenzie mcdonald,18094
 20260831,147,TA12,Stefano Travaglia,388,stefano travaglia,12097
 20260831,148,ms:27358,Pedro Martinez Portero,387,pedro martinez portero,27358
@@ -187,21 +187,21 @@ ranking_date,ranking,player_id,player,ranking_points,normalized_name,matchstat_p
 20260831,186,ms:94531,Jan Kumstat,302,jan kumstat,94531
 20260831,187,ms:40187,Andrea Guerrieri,301,andrea guerrieri,40187
 20260831,188,SS25,Vitaliy Sachko,298,vitaliy sachko,28904
-20260831,189,ms:90203,Lautaro Midon,293,lautaro midon,90203
-20260831,190,ms:104494,Diego Dedura,291,diego dedura,104494
+20260831,189,M0OH,Lautaro Midon,293,lautaro midon,90203
+20260831,190,D0LJ,Diego Dedura,291,diego dedura,104494
 20260831,191,N0CS,Lukas Neumayer,290,lukas neumayer,83314
 20260831,192,J476,David Jorda Sanchis,289,david jorda sanchis,18669
 20260831,193,ms:56211,Keegan Smith,287,keegan smith,56211
-20260831,194,ms:96517,Gianluca Cadenasso,286,gianluca cadenasso,96517
+20260831,194,C0NN,Gianluca Cadenasso,286,gianluca cadenasso,96517
 20260831,195,B0MM,Edas Butvilas,286,edas butvilas,87766
-20260831,196,ms:65558,Harry Wendelken,285,harry wendelken,65558
+20260831,196,W0AH,Harry Wendelken,285,harry wendelken,65558
 20260831,197,BI23,Liam Broady,282,liam broady,18016
 20260831,198,SX91,Thiago Seyboth Wild,281,thiago seyboth wild,36858
 20260831,199,BV16,Ugo Blanchet,279,ugo blanchet,44595
-20260831,200,ms:111498,Moise Kouame,279,moise kouame,111498
+20260831,200,K0O4,Moise Kouame,279,moise kouame,111498
 20260831,201,GA79,Lorenzo Giustino,279,lorenzo giustino,11981
 20260831,202,N732,Yoshihito Nishioka,276,yoshihito nishioka,24225
-20260831,203,ms:53909,Luka Pavlovic,273,luka pavlovic,53909
+20260831,203,P0AY,Luka Pavlovic,273,luka pavlovic,53909
 20260831,204,Y218,Elias Ymer,272,elias ymer,26218
 20260831,205,S0GR,Timofey Skatov,272,timofey skatov,55257
 20260831,206,DB63,Laslo Djere,271,laslo djere,24084
@@ -211,8 +211,8 @@ ranking_date,ranking,player_id,player,ranking_points,normalized_name,matchstat_p
 20260831,210,ms:51853,Pol Martin Tiffon,269,pol martin tiffon,51853
 20260831,211,AG08,Andres Andrade,269,andres andrade,37492
 20260831,212,M0SE,Maxim Mrva,265,maxim mrva,97984
-20260831,213,ms:84236,Guy Den Ouden,263,guy den ouden,84236
-20260831,214,ms:73608,Felix Gill,262,felix gill,73608
+20260831,213,D0H9,Guy Den Ouden,263,guy den ouden,84236
+20260831,214,G0EU,Felix Gill,262,felix gill,73608
 20260831,215,S0AK,Henri Squire,261,henri squire,48013
 20260831,216,ms:88050,Braden Shick,260,braden shick,88050
 20260831,217,CG33,Kimmer Coppejans,260,kimmer coppejans,23298
@@ -231,9 +231,9 @@ ranking_date,ranking,player_id,player,ranking_points,normalized_name,matchstat_p
 20260831,230,C0B2,Cezar Cretu,244,cezar cretu,53726
 20260831,231,ms:61966,Guido Ivan Justo,244,guido ivan justo,61966
 20260831,232,BD06,Roberto Bautista Agut,243,roberto bautista agut,1837
-20260831,233,ms:85862,Kilian Feldbausch,241,kilian feldbausch,85862
+20260831,233,F0F4,Kilian Feldbausch,241,kilian feldbausch,85862
 20260831,234,V836,Juan Pablo Varillas,240,juan pablo varillas,26153
-20260831,235,ms:75042,Alex Barrena,240,alex barrena,75042
+20260831,235,B0GY,Alex Barrena,240,alex barrena,75042
 20260831,236,N897,Sumit Nagal,239,sumit nagal,26922
 20260831,237,BV21,Charles Broom,239,charles broom,39438
 20260831,238,M0HT,Alejandro Moro Canas,239,alejandro moro canas,60625
@@ -250,18 +250,18 @@ ranking_date,ranking,player_id,player,ranking_points,normalized_name,matchstat_p
 20260831,249,Z0A1,Giulio Zeppieri,227,giulio zeppieri,57769
 20260831,250,K09F,Pavel Kotov,226,pavel kotov,45553
 20260831,251,ms:76009,Abedallah Shelbayh,226,abedallah shelbayh,76009
-20260831,252,ms:106767,Felix Balshaw,226,felix balshaw,106767
+20260831,252,B0WL,Felix Balshaw,226,felix balshaw,106767
 20260831,253,ms:46722,Jeff Wolf,225,jeff wolf,46722
 20260831,254,D0L3,Matej Dodig,225,matej dodig,95464
 20260831,255,ms:95461,Hayato Matsuoka,225,hayato matsuoka,95461
 20260831,256,HH06,Marc-Andrea Huesler,224,marc andrea huesler,35297
 20260831,257,N0DB,Andrej Nedic,220,andrej nedic,77866
 20260831,258,K0HC,Maks Kasnikowski,220,maks kasnikowski,84060
-20260831,259,ms:67853,Max Basing,219,max basing,67853
+20260831,259,B0JE,Max Basing,219,max basing,67853
 20260831,260,P0DF,Matheus Pucinelli De Almeida,219,matheus pucinelli de almeida,64916
-20260831,261,ms:58609,Matias Soto,218,matias soto,58609
+20260831,261,S0EK,Matias Soto,218,matias soto,58609
 20260831,262,ms:77659,Juan Bautista Torres,218,juan bautista torres,77659
-20260831,263,ms:70459,Martin Krumich,218,martin krumich,70459
+20260831,263,K0FY,Martin Krumich,218,martin krumich,70459
 20260831,264,ms:100225,Michele Ribecai,216,michele ribecai,100225
 20260831,265,ms:54146,Buvaysar Gadamauri,215,buvaysar gadamauri,54146
 20260831,266,P0GQ,Mili Poljicak,214,mili poljicak,84120
@@ -276,11 +276,11 @@ ranking_date,ranking,player_id,player,ranking_points,normalized_name,matchstat_p
 20260831,275,ms:84083,Ilia Simakin,210,ilia simakin,84083
 20260831,276,H0BF,Philip Henning,210,philip henning,58005
 20260831,277,U120,Kaichi Uchida,210,kaichi uchida,22269
-20260831,278,ms:52968,Marvin Moeller,210,marvin moeller,52968
+20260831,278,M0BN,Marvin Moeller,210,marvin moeller,52968
 20260831,279,ms:71357,Sean Cuenin,208,sean cuenin,71357
 20260831,280,ms:14609,Thiago Moura Monteiro,204,thiago moura monteiro,14609
 20260831,281,A09T,Dan Added,203,dan added,40605
-20260831,282,ms:50000,Joao Lucas Reis Da Silva,202,joao lucas reis da silva,50000
+20260831,282,R0A7,Joao Lucas Reis Da Silva,202,joao lucas reis da silva,50000
 20260831,283,ms:44209,Sandro Kopp,202,sandro kopp,44209
 20260831,284,H0A4,Nick Hardt,200,nick hardt,38973
 20260831,285,G0DH,Alvaro Guillen Meza,199,alvaro guillen meza,66379
@@ -298,4 +298,4 @@ ranking_date,ranking,player_id,player,ranking_points,normalized_name,matchstat_p
 20260831,297,KE64,Stefan Kozlov,189,stefan kozlov,26221
 20260831,298,ms:45938,Florian Broska,189,florian broska,45938
 20260831,299,M0ON,Johannus Monday,186,johannus monday,77192
-20260831,300,ms:44573,Mert Alkaya,185,mert alkaya,44573
+20260831,300,A09Q,Mert Alkaya,185,mert alkaya,44573
