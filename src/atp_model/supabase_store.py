@@ -1,3 +1,86 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import math
+import os
+import re
+import time
+import unicodedata
+from typing import Any
+
+import requests
+
+
+DEFAULT_TIMEOUT = 30
+
+
+def _secret(name: str) -> str:
+    value = os.getenv(name, "").strip()
+    if value:
+        return value
+    try:
+        import streamlit as st
+        return str(st.secrets.get(name, "")).strip()
+    except Exception:
+        return ""
+
+
+def config() -> tuple[str, str]:
+    return _secret("SUPABASE_URL").rstrip("/"), _secret("SUPABASE_KEY")
+
+
+def configured() -> bool:
+    url, key = config()
+    return bool(url and key)
+
+
+def _headers(prefer: str | None = None) -> dict[str, str]:
+    _, key = config()
+
+    headers = {
+        "apikey": key,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    # New sb_secret_* keys are API keys, not JWTs.
+    # Legacy service_role JWTs still need Authorization.
+    if key.startswith("eyJ"):
+        headers["Authorization"] = f"Bearer {key}"
+
+    if prefer:
+        headers["Prefer"] = prefer
+
+    return headers
+
+
+def _clean(value: Any) -> Any:
+    if value is None:
+        return None
+
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, (int, str)):
+        return value
+
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+
+    try:
+        item = value.item()
+        return _clean(item)
+    except Exception:
+        return str(value)
+
+
+def _clean_dict(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        str(k): _clean(v)
+        for k, v in payload.items()
+    }
+
+
 def _request(
     method: str,
     table: str,
@@ -7,15 +90,15 @@ def _request(
     prefer: str | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Send a request to Supabase with automatic retries for temporary failures.
+    Send a request to Supabase.
 
-    Retries:
-    - 429 Too Many Requests
-    - 500 Internal Server Error
-    - 502 Bad Gateway
-    - 503 Service Unavailable
-    - 504 Gateway Timeout
-    - connection errors
+    Automatically retries temporary failures:
+    - 429
+    - 500
+    - 502
+    - 503
+    - 504
+    - connection failures
     - request timeouts
     """
 
@@ -28,12 +111,14 @@ def _request(
 
     endpoint = f"{url}/rest/v1/{table}"
 
-    # Clean the payload before sending it to Supabase.
     if isinstance(payload, dict):
         body: Any = _clean_dict(payload)
 
     elif isinstance(payload, list):
-        body = [_clean_dict(x) for x in payload]
+        body = [
+            _clean_dict(x)
+            for x in payload
+        ]
 
     else:
         body = None
@@ -60,12 +145,12 @@ def _request(
                 headers=_headers(prefer),
                 params=params,
                 json=body,
-                timeout=30,
+                timeout=DEFAULT_TIMEOUT,
             )
 
-            # -------------------------------------------------
+            # -------------------------
             # SUCCESS
-            # -------------------------------------------------
+            # -------------------------
 
             if response.ok:
 
@@ -89,17 +174,17 @@ def _request(
 
                 return []
 
-            # -------------------------------------------------
-            # TEMPORARY / RETRYABLE HTTP ERROR
-            # -------------------------------------------------
+            # -------------------------
+            # RETRYABLE HTTP FAILURE
+            # -------------------------
+
+            text = response.text[:800]
 
             if response.status_code in retryable_statuses:
 
-                text = response.text[:800]
-
                 last_error = RuntimeError(
-                    f"Supabase {method_upper} {table} failed "
-                    f"({response.status_code}): {text}"
+                    f"Supabase {method_upper} {table} "
+                    f"failed ({response.status_code}): {text}"
                 )
 
                 if attempt < max_attempts:
@@ -110,59 +195,32 @@ def _request(
                     )
 
                     print(
-                        f"WARNING: Supabase {method_upper} "
-                        f"{table} returned "
+                        f"WARNING: Supabase "
+                        f"{method_upper} {table} returned "
                         f"{response.status_code}. "
                         f"Retrying in {wait_seconds}s "
-                        f"(attempt {attempt}/{max_attempts})..."
+                        f"({attempt}/{max_attempts})..."
                     )
 
                     time.sleep(wait_seconds)
 
                     continue
 
-            # -------------------------------------------------
-            # NON-RETRYABLE HTTP ERROR
-            # -------------------------------------------------
+                break
 
-            text = response.text[:800]
+            # -------------------------
+            # NON-RETRYABLE ERROR
+            # -------------------------
 
             raise RuntimeError(
-                f"Supabase {method_upper} {table} failed "
-                f"({response.status_code}): {text}"
+                f"Supabase {method_upper} {table} "
+                f"failed ({response.status_code}): {text}"
             )
 
-        # -----------------------------------------------------
-        # TIMEOUT
-        # -----------------------------------------------------
-
-        except requests.exceptions.Timeout as exc:
-
-            last_error = exc
-
-            if attempt < max_attempts:
-
-                wait_seconds = min(
-                    2 ** (attempt - 1),
-                    10,
-                )
-
-                print(
-                    f"WARNING: Supabase timeout for "
-                    f"{method_upper} {table}. "
-                    f"Retrying in {wait_seconds}s "
-                    f"(attempt {attempt}/{max_attempts})..."
-                )
-
-                time.sleep(wait_seconds)
-
-                continue
-
-        # -----------------------------------------------------
-        # CONNECTION ERROR
-        # -----------------------------------------------------
-
-        except requests.exceptions.ConnectionError as exc:
+        except (
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+        ) as exc:
 
             last_error = exc
 
@@ -174,19 +232,17 @@ def _request(
                 )
 
                 print(
-                    f"WARNING: Supabase connection error for "
-                    f"{method_upper} {table}: {exc}. "
+                    f"WARNING: Supabase connection/timeout "
+                    f"for {method_upper} {table}. "
                     f"Retrying in {wait_seconds}s "
-                    f"(attempt {attempt}/{max_attempts})..."
+                    f"({attempt}/{max_attempts})..."
                 )
 
                 time.sleep(wait_seconds)
 
                 continue
 
-        # -----------------------------------------------------
-        # OTHER REQUEST ERROR
-        # -----------------------------------------------------
+            break
 
         except requests.exceptions.RequestException as exc:
 
@@ -200,29 +256,2899 @@ def _request(
                 )
 
                 print(
-                    f"WARNING: Supabase request error for "
-                    f"{method_upper} {table}: {exc}. "
+                    f"WARNING: Supabase request problem "
+                    f"for {method_upper} {table}: {exc}. "
                     f"Retrying in {wait_seconds}s "
-                    f"(attempt {attempt}/{max_attempts})..."
+                    f"({attempt}/{max_attempts})..."
                 )
 
                 time.sleep(wait_seconds)
 
                 continue
 
-        # -----------------------------------------------------
-        # REAL APPLICATION / SUPABASE ERROR
-        # -----------------------------------------------------
-
-        except RuntimeError:
-            raise
-
-    # ---------------------------------------------------------
-    # ALL RETRIES FAILED
-    # ---------------------------------------------------------
+            break
 
     raise RuntimeError(
         f"Supabase {method_upper} {table} failed after "
         f"{max_attempts} attempts. "
         f"Last error: {last_error}"
+    )
+
+
+def healthcheck() -> tuple[bool, str]:
+    if not configured():
+        return (
+            False,
+            "SUPABASE_URL / SUPABASE_KEY not configured",
+        )
+
+    try:
+        _request(
+            "GET",
+            "bets",
+            params={
+                "select": "id",
+                "limit": 1,
+            },
+        )
+
+        return True, "connected"
+
+    except Exception as exc:
+        return False, str(exc)
+
+
+def get_setting(key: str) -> Any:
+    rows = _request(
+        "GET",
+        "model_settings",
+        params={
+            "select": "value",
+            "key": f"eq.{key}",
+            "limit": 1,
+        },
+    )
+
+    return rows[0].get("value") if rows else None
+
+
+def set_setting(
+    key: str,
+    value: Any,
+) -> None:
+
+    existing = _request(
+        "GET",
+        "model_settings",
+        params={
+            "select": "key",
+            "key": f"eq.{key}",
+            "limit": 1,
+        },
+    )
+
+    payload = {
+        "key": key,
+        "value": _clean(value),
+        "updated_at": datetime.now(
+            timezone.utc
+        ).isoformat(),
+    }
+
+    if existing:
+        _request(
+            "PATCH",
+            "model_settings",
+            params={
+                "key": f"eq.{key}"
+            },
+            payload=payload,
+        )
+
+    else:
+        _request(
+            "POST",
+            "model_settings",
+            payload=payload,
+        )
+
+
+def get_starting_bankroll() -> float | None:
+    try:
+        value = get_setting(
+            "starting_bankroll"
+        )
+
+        if isinstance(value, dict):
+            value = value.get(
+                "amount"
+            )
+
+        if value is None:
+            return None
+
+        amount = float(value)
+
+        return (
+            amount
+            if amount >= 0
+            else None
+        )
+
+    except Exception:
+        return None
+
+
+def set_starting_bankroll(
+    amount: float,
+) -> float:
+
+    amount = float(amount)
+
+    if amount < 0:
+        raise ValueError(
+            "Starting bankroll must be zero or greater"
+        )
+
+    set_setting(
+        "starting_bankroll",
+        amount,
+    )
+
+    return amount
+
+
+def get_tracking_mode() -> str:
+    """
+    Percentage mode uses a normalized
+    100-point bankroll.
+    """
+
+    try:
+        value = get_setting(
+            "tracking_mode"
+        )
+
+        if isinstance(value, dict):
+            value = value.get("mode")
+
+        text = str(
+            value or "percentage"
+        ).strip().lower()
+
+        return (
+            "currency"
+            if text in {
+                "currency",
+                "cash",
+                "bankroll",
+                "cad",
+            }
+            else "percentage"
+        )
+
+    except Exception:
+        return "percentage"
+
+
+def set_tracking_mode(
+    mode: str,
+) -> str:
+
+    text = str(
+        mode or "percentage"
+    ).strip().lower()
+
+    normalized = (
+        "currency"
+        if text in {
+            "currency",
+            "cash",
+            "bankroll",
+            "cad",
+        }
+        else "percentage"
+    )
+
+    set_setting(
+        "tracking_mode",
+        normalized,
+    )
+
+    return normalized
+
+
+def effective_starting_bankroll() -> float | None:
+    if get_tracking_mode() == "percentage":
+        return 100.0
+
+    return get_starting_bankroll()
+
+
+def list_bets() -> list[dict[str, Any]]:
+    return _request(
+        "GET",
+        "bets",
+        params={
+            "select": "*",
+            "order": "created_at.asc",
+        },
+    )
+
+
+def list_predictions() -> list[dict[str, Any]]:
+    return _request(
+        "GET",
+        "predictions",
+        params={
+            "select": "*",
+            "order": "created_at.asc",
+        },
+    )
+
+
+def list_odds_snapshots(
+    match_id: str | None = None,
+    market: str | None = None,
+) -> list[dict[str, Any]]:
+
+    params: dict[str, Any] = {
+        "select": "*",
+        "order": "captured_at.asc",
+    }
+
+    if match_id:
+        params["match_id"] = (
+            f"eq.{match_id}"
+        )
+
+    if market:
+        params["market"] = (
+            f"eq.{market}"
+        )
+
+    return _request(
+        "GET",
+        "odds_snapshots",
+        params=params,
+    )
+
+
+def _latest_odds_snapshot(
+    match_id: str,
+    market: str,
+) -> dict[str, Any] | None:
+
+    rows = _request(
+        "GET",
+        "odds_snapshots",
+        params={
+            "select": "*",
+            "match_id": f"eq.{match_id}",
+            "market": f"eq.{market}",
+            "order": "captured_at.desc",
+            "limit": 1,
+        },
+    )
+
+    return rows[0] if rows else None
+
+
+def record_odds_snapshot(
+    *,
+    match_id: str,
+    match_date: str | None,
+    market: str,
+    player_a: str,
+    player_b: str,
+    selection_a: str,
+    selection_b: str,
+    odds_a: float | None,
+    odds_b: float | None,
+    source: str | None = None,
+    captured_at: str | None = None,
+) -> int | None:
+
+    try:
+        oa = (
+            float(odds_a)
+            if odds_a not in (None, "")
+            else None
+        )
+
+        ob = (
+            float(odds_b)
+            if odds_b not in (None, "")
+            else None
+        )
+
+    except Exception:
+        return None
+
+    if (
+        oa is None
+        or ob is None
+        or oa <= 1.0
+        or ob <= 1.0
+    ):
+        return None
+
+    last = _latest_odds_snapshot(
+        str(match_id),
+        str(market),
+    )
+
+    if last:
+        try:
+            if (
+                abs(
+                    float(
+                        last.get("odds_a")
+                    )
+                    - oa
+                )
+                < 1e-9
+                and abs(
+                    float(
+                        last.get("odds_b")
+                    )
+                    - ob
+                )
+                < 1e-9
+            ):
+                return int(last["id"])
+
+        except Exception:
+            pass
+
+    payload = {
+        "captured_at":
+            captured_at
+            or datetime.now(
+                timezone.utc
+            ).isoformat(),
+
+        "match_id":
+            str(match_id),
+
+        "match_date":
+            match_date,
+
+        "market":
+            str(market),
+
+        "player_a":
+            player_a,
+
+        "player_b":
+            player_b,
+
+        "selection_a":
+            selection_a,
+
+        "selection_b":
+            selection_b,
+
+        "odds_a":
+            oa,
+
+        "odds_b":
+            ob,
+
+        "source":
+            source or "Pinnacle",
+    }
+
+    rows = _request(
+        "POST",
+        "odds_snapshots",
+        payload=payload,
+        prefer="return=representation",
+    )
+
+    return (
+        int(rows[0]["id"])
+        if rows
+        else None
+    )
+
+
+def current_bankroll() -> float | None:
+    start = effective_starting_bankroll()
+
+    if start is None:
+        return None
+
+    try:
+        bets = list_bets()
+
+    except Exception:
+        return start
+
+    profit = 0.0
+
+    for row in bets:
+        value = row.get(
+            "profit_loss"
+        )
+
+        if value is not None:
+            try:
+                profit += float(value)
+
+            except Exception:
+                pass
+
+    return float(start) + profit
+
+
+def _normalize_tracking_name(
+    value: Any,
+) -> str:
+
+    text = unicodedata.normalize(
+        "NFKD",
+        str(value or ""),
+    )
+
+    text = "".join(
+        ch
+        for ch in text
+        if not unicodedata.combining(ch)
+    )
+
+    text = re.sub(
+        r"[^a-zA-Z0-9]+",
+        " ",
+        text,
+    ).strip().lower()
+
+    return " ".join(
+        text.split()
+    )
+
+
+def canonical_prediction_key(
+    row: dict[str, Any],
+) -> tuple[str, str, str, str]:
+
+    names = sorted(
+        [
+            _normalize_tracking_name(
+                row.get("player_a")
+            ),
+            _normalize_tracking_name(
+                row.get("player_b")
+            ),
+        ]
+    )
+
+    when = str(
+        row.get("match_date")
+        or ""
+    )
+
+    day = ""
+
+    if when:
+        try:
+            day = datetime.fromisoformat(
+                when.replace(
+                    "Z",
+                    "+00:00",
+                )
+            ).astimezone(
+                timezone.utc
+            ).date().isoformat()
+
+        except Exception:
+            day = when[:10]
+
+    return (
+        str(
+            row.get("model_version")
+            or ""
+        ),
+
+        str(
+            row.get("market")
+            or ""
+        ).strip().casefold(),
+
+        day,
+
+        "|".join(names),
+    )
+
+
+def coalesce_prediction_records(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+
+    groups: dict[
+        tuple[str, str, str, str],
+        list[dict[str, Any]],
+    ] = {}
+
+    for row in rows:
+        groups.setdefault(
+            canonical_prediction_key(row),
+            [],
+        ).append(
+            dict(row)
+        )
+
+    out: list[
+        dict[str, Any]
+    ] = []
+
+    for items in groups.values():
+
+        items.sort(
+            key=lambda r: str(
+                r.get("created_at")
+                or ""
+            )
+        )
+
+        base = dict(items[0])
+
+        base[
+            "duplicate_count"
+        ] = len(items)
+
+        for field in (
+            "predicted_selection",
+            "predicted_probability",
+        ):
+
+            if base.get(
+                field
+            ) in (None, ""):
+
+                for row in items[1:]:
+
+                    if row.get(
+                        field
+                    ) not in (None, ""):
+
+                        base[field] = (
+                            row.get(field)
+                        )
+
+                        break
+
+        value_fields = (
+            "value_selection",
+            "value_probability",
+            "value_odds",
+            "value_market_probability",
+            "value_edge",
+            "value_expected_value",
+            "value_kelly",
+            "value_captured_at",
+        )
+
+        if base.get(
+            "value_selection"
+        ) in (None, ""):
+
+            value_rows = [
+                r
+                for r in items
+                if r.get(
+                    "value_selection"
+                )
+                not in (
+                    None,
+                    "",
+                    "No bet",
+                )
+            ]
+
+            if value_rows:
+
+                value_rows.sort(
+                    key=lambda r: str(
+                        r.get(
+                            "value_captured_at"
+                        )
+                        or r.get(
+                            "created_at"
+                        )
+                        or ""
+                    )
+                )
+
+                first_value = (
+                    value_rows[0]
+                )
+
+                for field in value_fields:
+
+                    if first_value.get(
+                        field
+                    ) not in (
+                        None,
+                        "",
+                    ):
+
+                        base[field] = (
+                            first_value.get(
+                                field
+                            )
+                        )
+
+        priced = [
+            r
+            for r in items
+            if r.get(
+                "opening_odds"
+            )
+            not in (
+                None,
+                "",
+            )
+        ]
+
+        if priced:
+
+            priced.sort(
+                key=lambda r: str(
+                    r.get(
+                        "first_price_at"
+                    )
+                    or r.get(
+                        "created_at"
+                    )
+                    or ""
+                )
+            )
+
+            first = priced[0]
+
+            base[
+                "opening_odds"
+            ] = first.get(
+                "opening_odds"
+            )
+
+            base[
+                "first_price_at"
+            ] = (
+                first.get(
+                    "first_price_at"
+                )
+                or first.get(
+                    "created_at"
+                )
+            )
+
+        latest = [
+            r
+            for r in items
+            if r.get(
+                "latest_odds"
+            )
+            not in (
+                None,
+                "",
+            )
+        ]
+
+        if latest:
+
+            latest.sort(
+                key=lambda r: str(
+                    r.get(
+                        "latest_price_at"
+                    )
+                    or r.get(
+                        "created_at"
+                    )
+                    or ""
+                )
+            )
+
+            last = latest[-1]
+
+            base[
+                "latest_odds"
+            ] = last.get(
+                "latest_odds"
+            )
+
+            base[
+                "latest_price_at"
+            ] = (
+                last.get(
+                    "latest_price_at"
+                )
+                or last.get(
+                    "created_at"
+                )
+            )
+
+        closed = [
+            r
+            for r in items
+            if r.get(
+                "closing_odds"
+            )
+            not in (
+                None,
+                "",
+            )
+        ]
+
+        if closed:
+
+            closed.sort(
+                key=lambda r: str(
+                    r.get(
+                        "settled_at"
+                    )
+                    or r.get(
+                        "latest_price_at"
+                    )
+                    or r.get(
+                        "created_at"
+                    )
+                    or ""
+                )
+            )
+
+            base[
+                "closing_odds"
+            ] = closed[-1].get(
+                "closing_odds"
+            )
+
+        settled = [
+            r
+            for r in items
+            if r.get(
+                "actual_result"
+            )
+            not in (
+                None,
+                "",
+            )
+        ]
+
+        if settled:
+
+            settled.sort(
+                key=lambda r: str(
+                    r.get(
+                        "settled_at"
+                    )
+                    or r.get(
+                        "created_at"
+                    )
+                    or ""
+                )
+            )
+
+            base[
+                "actual_result"
+            ] = settled[-1].get(
+                "actual_result"
+            )
+
+            base[
+                "settled_at"
+            ] = settled[-1].get(
+                "settled_at"
+            )
+
+        try:
+            opening = (
+                float(
+                    base.get(
+                        "opening_odds"
+                    )
+                )
+                if base.get(
+                    "opening_odds"
+                )
+                not in (
+                    None,
+                    "",
+                )
+                else None
+            )
+
+            latest_odds = (
+                float(
+                    base.get(
+                        "latest_odds"
+                    )
+                )
+                if base.get(
+                    "latest_odds"
+                )
+                not in (
+                    None,
+                    "",
+                )
+                else None
+            )
+
+            close = (
+                float(
+                    base.get(
+                        "closing_odds"
+                    )
+                )
+                if base.get(
+                    "closing_odds"
+                )
+                not in (
+                    None,
+                    "",
+                )
+                else None
+            )
+
+            if (
+                opening
+                and opening > 1.0
+                and latest_odds
+                and latest_odds > 1.0
+            ):
+                base[
+                    "odds_change"
+                ] = (
+                    latest_odds
+                    / opening
+                    - 1.0
+                )
+
+            if (
+                opening
+                and opening > 1.0
+                and close
+                and close > 1.0
+            ):
+                base[
+                    "clv"
+                ] = (
+                    opening
+                    / close
+                    - 1.0
+                )
+
+        except Exception:
+            pass
+
+        out.append(base)
+
+    return out
+
+
+def _prediction_lookup(
+    match_id: str,
+    market: str,
+    model_version: str,
+) -> list[dict[str, Any]]:
+
+    return _request(
+        "GET",
+        "predictions",
+        params={
+            "select": "*",
+            "match_id":
+                f"eq.{match_id}",
+            "market":
+                f"eq.{market}",
+            "model_version":
+                f"eq.{model_version}",
+            "limit": 1,
+        },
+    )
+
+
+def _prediction_lookup_canonical(
+    payload: dict[str, Any],
+) -> list[dict[str, Any]]:
+
+    market = str(
+        payload.get("market")
+        or ""
+    )
+
+    version = str(
+        payload.get("model_version")
+        or ""
+    )
+
+    if not market or not version:
+        return []
+
+    rows = _request(
+        "GET",
+        "predictions",
+        params={
+            "select": "*",
+            "market":
+                f"eq.{market}",
+            "model_version":
+                f"eq.{version}",
+            "order":
+                "created_at.asc",
+        },
+    )
+
+    target = (
+        canonical_prediction_key(
+            payload
+        )
+    )
+
+    return [
+        row
+        for row in rows
+        if canonical_prediction_key(
+            row
+        )
+        == target
+    ]
+
+
+def _prediction_by_id(
+    prediction_id: int,
+) -> dict[str, Any] | None:
+
+    rows = _request(
+        "GET",
+        "predictions",
+        params={
+            "select": "*",
+            "id":
+                f"eq.{int(prediction_id)}",
+            "limit": 1,
+        },
+    )
+
+    return rows[0] if rows else None
+
+
+def upsert_prediction(
+    payload: dict[str, Any],
+) -> int:
+
+    match_id = str(
+        payload.get("match_id")
+        or ""
+    )
+
+    market = str(
+        payload.get("market")
+        or ""
+    )
+
+    model_version = str(
+        payload.get("model_version")
+        or ""
+    )
+
+    if (
+        not match_id
+        or not market
+        or not model_version
+    ):
+        raise ValueError(
+            "Prediction requires match_id, "
+            "market and model_version"
+        )
+
+    now = datetime.now(
+        timezone.utc
+    ).isoformat()
+
+    existing = _prediction_lookup(
+        match_id,
+        market,
+        model_version,
+    )
+
+    if not existing:
+        existing = (
+            _prediction_lookup_canonical(
+                payload
+            )
+        )
+
+    current_price = (
+        payload.get(
+            "latest_odds"
+        )
+    )
+
+    try:
+        current_price = (
+            float(current_price)
+            if current_price not in (
+                None,
+                "",
+            )
+            else None
+        )
+
+    except Exception:
+        current_price = None
+
+    if existing:
+
+        row = existing[0]
+
+        pid = int(
+            row["id"]
+        )
+
+        if row.get(
+            "actual_result"
+        ) is not None:
+            return pid
+
+        opening = row.get(
+            "opening_odds"
+        )
+
+        if (
+            opening in (
+                None,
+                "",
+            )
+            and current_price
+            and current_price > 1.0
+        ):
+            opening = current_price
+
+        update: dict[
+            str,
+            Any,
+        ] = {
+            "opening_odds":
+                opening,
+
+            "first_price_at":
+                row.get(
+                    "first_price_at"
+                )
+                or (
+                    now
+                    if opening
+                    else None
+                ),
+        }
+
+        for key in (
+            "predicted_selection",
+            "predicted_probability",
+        ):
+
+            if (
+                row.get(key)
+                in (None, "")
+                and payload.get(
+                    key
+                )
+                not in (
+                    None,
+                    "",
+                )
+            ):
+                update[key] = (
+                    payload.get(key)
+                )
+
+        if (
+            row.get(
+                "value_selection"
+            )
+            in (
+                None,
+                "",
+                "No bet",
+            )
+            and payload.get(
+                "value_selection"
+            )
+            not in (
+                None,
+                "",
+                "No bet",
+            )
+        ):
+
+            for key in (
+                "value_selection",
+                "value_probability",
+                "value_odds",
+                "value_market_probability",
+                "value_edge",
+                "value_expected_value",
+                "value_kelly",
+            ):
+
+                if payload.get(
+                    key
+                ) not in (
+                    None,
+                    "",
+                ):
+                    update[key] = (
+                        payload.get(key)
+                    )
+
+            update[
+                "value_captured_at"
+            ] = (
+                row.get(
+                    "value_captured_at"
+                )
+                or now
+            )
+
+        if (
+            current_price
+            and current_price > 1.0
+        ):
+
+            update[
+                "latest_odds"
+            ] = current_price
+
+            update[
+                "latest_price_at"
+            ] = now
+
+            if opening:
+                try:
+                    update[
+                        "odds_change"
+                    ] = (
+                        current_price
+                        / float(opening)
+                        - 1.0
+                    )
+
+                except Exception:
+                    pass
+
+        _request(
+            "PATCH",
+            "predictions",
+            params={
+                "id":
+                    f"eq.{pid}"
+            },
+            payload=update,
+        )
+
+        return pid
+
+    insert = dict(payload)
+
+    if (
+        insert.get(
+            "value_selection"
+        )
+        not in (
+            None,
+            "",
+            "No bet",
+        )
+        and not insert.get(
+            "value_captured_at"
+        )
+    ):
+        insert[
+            "value_captured_at"
+        ] = now
+
+    if (
+        current_price
+        and current_price > 1.0
+    ):
+
+        insert[
+            "opening_odds"
+        ] = current_price
+
+        insert[
+            "latest_odds"
+        ] = current_price
+
+        insert[
+            "first_price_at"
+        ] = now
+
+        insert[
+            "latest_price_at"
+        ] = now
+
+        insert[
+            "odds_change"
+        ] = 0.0
+
+    rows = _request(
+        "POST",
+        "predictions",
+        payload=insert,
+        prefer="return=representation",
+    )
+
+    if not rows:
+        rows = _prediction_lookup(
+            match_id,
+            market,
+            model_version,
+        )
+
+    if not rows:
+        raise RuntimeError(
+            "Prediction was inserted but "
+            "its id could not be recovered"
+        )
+
+    return int(
+        rows[0]["id"]
+    )
+
+
+def prediction_payload_from_detail(
+    detail: dict[str, Any],
+    model_version: str,
+    market: str = "Moneyline",
+) -> dict[str, Any]:
+
+    result = detail["result"]
+    event = detail["event"]
+
+    context = detail.get(
+        "context",
+        {},
+    )
+
+    quote = detail.get(
+        "quote",
+        {},
+    )
+
+    start = event.get(
+        "startTimestamp"
+    )
+
+    match_date = None
+
+    try:
+        match_date = (
+            datetime.fromtimestamp(
+                float(start),
+                tz=timezone.utc,
+            ).isoformat()
+            if start
+            else None
+        )
+
+    except Exception:
+        match_date = None
+
+    tournament = (
+        result.get("tournament")
+        or event.get("league")
+        or context.get("tournament")
+    )
+
+    level = result.get(
+        "tournament_level",
+        context.get("level"),
+    )
+
+    round_name = (
+        event.get("round")
+        or context.get("round")
+        or ""
+    )
+
+    min_ev = 0.02
+    min_edge = 0.02
+
+    if market == "Total Sets 3.5":
+
+        sets = (
+            detail.get("sets")
+            or {}
+        )
+
+        p_over = sets.get(
+            "probability_over35"
+        )
+
+        p_under = sets.get(
+            "probability_under35"
+        )
+
+        try:
+            over_is_pick = (
+                float(p_over)
+                >= float(p_under)
+            )
+
+        except Exception:
+            over_is_pick = True
+
+        predicted_selection = (
+            "Over 3.5"
+            if over_is_pick
+            else "Under 3.5"
+        )
+
+        predicted_probability = (
+            p_over
+            if over_is_pick
+            else p_under
+        )
+
+        current_price = (
+            sets.get(
+                "odds_over35"
+            )
+            if over_is_pick
+            else sets.get(
+                "odds_under35"
+            )
+        )
+
+        value_selection = None
+        value_probability = None
+        value_odds = None
+        value_market_probability = None
+        value_edge = None
+        value_ev = None
+        value_kelly = None
+
+        recommended = str(
+            sets.get(
+                "recommended_market"
+            )
+            or ""
+        )
+
+        try:
+            rec_edge = float(
+                sets.get(
+                    "recommended_edge"
+                )
+            )
+
+            rec_ev = float(
+                sets.get(
+                    "recommended_ev"
+                )
+            )
+
+        except Exception:
+            rec_edge = -1.0
+            rec_ev = -1.0
+
+        if (
+            recommended
+            and recommended != "No bet"
+            and rec_edge >= min_edge
+            and rec_ev >= min_ev
+        ):
+
+            is_over_value = (
+                recommended
+                .casefold()
+                .startswith("over")
+            )
+
+            value_selection = (
+                "Over 3.5"
+                if is_over_value
+                else "Under 3.5"
+            )
+
+            value_probability = (
+                p_over
+                if is_over_value
+                else p_under
+            )
+
+            value_odds = (
+                sets.get(
+                    "odds_over35"
+                )
+                if is_over_value
+                else sets.get(
+                    "odds_under35"
+                )
+            )
+
+            value_market_probability = (
+                sets.get(
+                    "market_probability_over35"
+                )
+                if is_over_value
+                else sets.get(
+                    "market_probability_under35"
+                )
+            )
+
+            value_edge = (
+                sets.get(
+                    "edge_over35"
+                )
+                if is_over_value
+                else sets.get(
+                    "edge_under35"
+                )
+            )
+
+            value_ev = (
+                sets.get(
+                    "ev_over35"
+                )
+                if is_over_value
+                else sets.get(
+                    "ev_under35"
+                )
+            )
+
+            value_kelly = (
+                sets.get(
+                    "quarter_kelly_over35"
+                )
+                if is_over_value
+                else sets.get(
+                    "quarter_kelly_under35"
+                )
+            )
+
+        return {
+            "match_id":
+                str(
+                    event.get("id")
+                    or ""
+                ),
+
+            "match_date":
+                match_date,
+
+            "model_version":
+                model_version,
+
+            "tournament":
+                tournament,
+
+            "tournament_level":
+                (
+                    str(level)
+                    if level is not None
+                    else None
+                ),
+
+            "surface":
+                result.get(
+                    "surface"
+                ),
+
+            "round":
+                str(round_name),
+
+            "player_a":
+                result.get(
+                    "player_a"
+                ),
+
+            "player_b":
+                result.get(
+                    "player_b"
+                ),
+
+            "market":
+                market,
+
+            "selection":
+                "Over 3.5",
+
+            "model_probability":
+                p_over,
+
+            "model_fair_odds":
+                sets.get(
+                    "fair_odds_over35"
+                ),
+
+            "pinnacle_odds":
+                sets.get(
+                    "odds_over35"
+                ),
+
+            "pinnacle_no_vig_probability":
+                sets.get(
+                    "market_probability_over35"
+                ),
+
+            "edge":
+                sets.get(
+                    "edge_over35"
+                ),
+
+            "expected_value":
+                sets.get(
+                    "ev_over35"
+                ),
+
+            "court_speed":
+                result.get(
+                    "court_speed"
+                ),
+
+            "predicted_selection":
+                predicted_selection,
+
+            "predicted_probability":
+                predicted_probability,
+
+            "latest_odds":
+                current_price,
+
+            "value_selection":
+                value_selection,
+
+            "value_probability":
+                value_probability,
+
+            "value_odds":
+                value_odds,
+
+            "value_market_probability":
+                value_market_probability,
+
+            "value_edge":
+                value_edge,
+
+            "value_expected_value":
+                value_ev,
+
+            "value_kelly":
+                value_kelly,
+        }
+
+    moneyline = quote.get(
+        "moneyline"
+    )
+
+    if (
+        moneyline
+        and len(moneyline) == 2
+    ):
+        odds_a, odds_b = moneyline
+
+    else:
+        odds_a = None
+        odds_b = None
+
+    p_a = result.get(
+        "probability_a"
+    )
+
+    p_b = result.get(
+        "probability_b"
+    )
+
+    try:
+        a_is_pick = (
+            float(p_a)
+            >= float(p_b)
+        )
+
+    except Exception:
+        a_is_pick = True
+
+    predicted_selection = (
+        result.get("player_a")
+        if a_is_pick
+        else result.get("player_b")
+    )
+
+    predicted_probability = (
+        p_a
+        if a_is_pick
+        else p_b
+    )
+
+    current_price = (
+        odds_a
+        if a_is_pick
+        else odds_b
+    )
+
+    value_selection = None
+    value_probability = None
+    value_odds = None
+    value_market_probability = None
+    value_edge = None
+    value_ev = None
+    value_kelly = None
+
+    try:
+        rec_edge = float(
+            result.get(
+                "recommended_edge"
+            )
+        )
+
+        rec_ev = float(
+            result.get(
+                "recommended_ev"
+            )
+        )
+
+    except Exception:
+        rec_edge = -1.0
+        rec_ev = -1.0
+
+    rec_pick = str(
+        result.get(
+            "recommended_pick"
+        )
+        or ""
+    )
+
+    rec_side = str(
+        result.get(
+            "recommended_side"
+        )
+        or ""
+    )
+
+    if (
+        moneyline
+        and rec_pick
+        and rec_pick != "NO BET"
+        and rec_side != "NO BET"
+        and rec_edge >= min_edge
+        and rec_ev >= min_ev
+    ):
+
+        value_selection = (
+            rec_pick
+        )
+
+        is_a_value = (
+            str(rec_pick).casefold()
+            ==
+            str(
+                result.get(
+                    "player_a"
+                )
+                or ""
+            ).casefold()
+        )
+
+        value_probability = (
+            p_a
+            if is_a_value
+            else p_b
+        )
+
+        value_odds = (
+            odds_a
+            if is_a_value
+            else odds_b
+        )
+
+        value_market_probability = (
+            result.get(
+                "market_probability_a"
+            )
+            if is_a_value
+            else result.get(
+                "market_probability_b"
+            )
+        )
+
+        value_edge = (
+            result.get(
+                "edge_a"
+            )
+            if is_a_value
+            else result.get(
+                "edge_b"
+            )
+        )
+
+        value_ev = (
+            result.get(
+                "ev_a"
+            )
+            if is_a_value
+            else result.get(
+                "ev_b"
+            )
+        )
+
+        value_kelly = (
+            result.get(
+                "quarter_kelly_a"
+            )
+            if is_a_value
+            else result.get(
+                "quarter_kelly_b"
+            )
+        )
+
+        value_odds = result.get(
+            "recommended_odds",
+            value_odds,
+        )
+
+        value_edge = result.get(
+            "recommended_edge",
+            value_edge,
+        )
+
+        value_ev = result.get(
+            "recommended_ev",
+            value_ev,
+        )
+
+        value_kelly = result.get(
+            "recommended_quarter_kelly",
+            value_kelly,
+        )
+
+    return {
+        "match_id":
+            str(
+                event.get("id")
+                or ""
+            ),
+
+        "match_date":
+            match_date,
+
+        "model_version":
+            model_version,
+
+        "tournament":
+            tournament,
+
+        "tournament_level":
+            (
+                str(level)
+                if level is not None
+                else None
+            ),
+
+        "surface":
+            result.get(
+                "surface"
+            ),
+
+        "round":
+            str(round_name),
+
+        "player_a":
+            result.get(
+                "player_a"
+            ),
+
+        "player_b":
+            result.get(
+                "player_b"
+            ),
+
+        "market":
+            "Moneyline",
+
+        "selection":
+            result.get(
+                "player_a"
+            ),
+
+        "model_probability":
+            p_a,
+
+        "model_fair_odds":
+            result.get(
+                "fair_odds_a"
+            ),
+
+        "pinnacle_odds":
+            odds_a,
+
+        "pinnacle_no_vig_probability":
+            (
+                result.get(
+                    "market_probability_a"
+                )
+                if moneyline
+                else None
+            ),
+
+        "edge":
+            (
+                result.get(
+                    "edge_a"
+                )
+                if moneyline
+                else None
+            ),
+
+        "expected_value":
+            (
+                result.get(
+                    "ev_a"
+                )
+                if moneyline
+                else None
+            ),
+
+        "court_speed":
+            result.get(
+                "court_speed"
+            ),
+
+        "predicted_selection":
+            predicted_selection,
+
+        "predicted_probability":
+            predicted_probability,
+
+        "latest_odds":
+            current_price,
+
+        "value_selection":
+            value_selection,
+
+        "value_probability":
+            value_probability,
+
+        "value_odds":
+            value_odds,
+
+        "value_market_probability":
+            value_market_probability,
+
+        "value_edge":
+            value_edge,
+
+        "value_expected_value":
+            value_ev,
+
+        "value_kelly":
+            value_kelly,
+    }
+
+
+def record_detail_predictions(
+    detail: dict[str, Any],
+    model_version: str,
+) -> list[int]:
+
+    result = (
+        detail.get("result")
+        or {}
+    )
+
+    event = (
+        detail.get("event")
+        or {}
+    )
+
+    quote = (
+        detail.get("quote")
+        or {}
+    )
+
+    sets = (
+        detail.get("sets")
+        or {}
+    )
+
+    start = event.get(
+        "startTimestamp"
+    )
+
+    match_date = None
+
+    try:
+        match_date = (
+            datetime.fromtimestamp(
+                float(start),
+                tz=timezone.utc,
+            ).isoformat()
+            if start
+            else None
+        )
+
+    except Exception:
+        match_date = None
+
+    match_id = str(
+        event.get("id")
+        or ""
+    )
+
+    player_a = str(
+        result.get("player_a")
+        or ""
+    )
+
+    player_b = str(
+        result.get("player_b")
+        or ""
+    )
+
+    source = str(
+        quote.get("source")
+        or "Pinnacle"
+    )
+
+    moneyline_id = (
+        upsert_prediction(
+            prediction_payload_from_detail(
+                detail,
+                model_version,
+                "Moneyline",
+            )
+        )
+    )
+
+    ids = [
+        moneyline_id
+    ]
+
+    moneyline_row = (
+        _prediction_by_id(
+            moneyline_id
+        )
+    )
+
+    canonical_moneyline_match_id = str(
+        (
+            moneyline_row
+            or {}
+        ).get(
+            "match_id"
+        )
+        or match_id
+    )
+
+    ml = quote.get(
+        "moneyline"
+    )
+
+    if (
+        ml
+        and len(ml) == 2
+    ):
+
+        record_odds_snapshot(
+            match_id=
+                canonical_moneyline_match_id,
+
+            match_date=
+                match_date,
+
+            market=
+                "Moneyline",
+
+            player_a=
+                player_a,
+
+            player_b=
+                player_b,
+
+            selection_a=
+                player_a,
+
+            selection_b=
+                player_b,
+
+            odds_a=
+                ml[0],
+
+            odds_b=
+                ml[1],
+
+            source=
+                source,
+        )
+
+    if (
+        sets.get("available")
+        and float(
+            result.get(
+                "best_of",
+                3,
+            )
+            or 3
+        )
+        >= 5
+    ):
+
+        sets_id = (
+            upsert_prediction(
+                prediction_payload_from_detail(
+                    detail,
+                    model_version,
+                    "Total Sets 3.5",
+                )
+            )
+        )
+
+        ids.append(
+            sets_id
+        )
+
+        sets_row = (
+            _prediction_by_id(
+                sets_id
+            )
+        )
+
+        canonical_sets_match_id = str(
+            (
+                sets_row
+                or {}
+            ).get(
+                "match_id"
+            )
+            or canonical_moneyline_match_id
+        )
+
+        oa = sets.get(
+            "odds_over35"
+        )
+
+        ob = sets.get(
+            "odds_under35"
+        )
+
+        if (
+            oa not in (
+                None,
+                "",
+            )
+            and ob not in (
+                None,
+                "",
+            )
+        ):
+
+            record_odds_snapshot(
+                match_id=
+                    canonical_sets_match_id,
+
+                match_date=
+                    match_date,
+
+                market=
+                    "Total Sets 3.5",
+
+                player_a=
+                    player_a,
+
+                player_b=
+                    player_b,
+
+                selection_a=
+                    "Over 3.5",
+
+                selection_b=
+                    "Under 3.5",
+
+                odds_a=
+                    oa,
+
+                odds_b=
+                    ob,
+
+                source=
+                    str(
+                        quote.get(
+                            "sets35_source"
+                        )
+                        or source
+                    ),
+            )
+
+    return ids
+
+
+def update_prediction_outcome(
+    prediction_id: int,
+    actual_result: float,
+    *,
+    settled_at: str | None = None,
+) -> None:
+
+    actual = float(
+        actual_result
+    )
+
+    if actual not in {
+        0.0,
+        1.0,
+    }:
+        raise ValueError(
+            "actual_result must be 0 or 1"
+        )
+
+    _request(
+        "PATCH",
+        "predictions",
+        params={
+            "id":
+                f"eq.{int(prediction_id)}"
+        },
+        payload={
+            "actual_result":
+                actual,
+
+            "settled_at":
+                settled_at
+                or datetime.now(
+                    timezone.utc
+                ).isoformat(),
+        },
+    )
+
+
+def _snapshot_price_for_prediction(
+    prediction: dict[str, Any],
+    snapshot: dict[str, Any],
+) -> float | None:
+
+    predicted = str(
+        prediction.get(
+            "predicted_selection"
+        )
+        or ""
+    ).strip()
+
+    market = str(
+        prediction.get(
+            "market"
+        )
+        or ""
+    )
+
+    if market == "Moneyline":
+
+        if (
+            predicted
+            and predicted
+            == str(
+                snapshot.get(
+                    "selection_a"
+                )
+                or ""
+            )
+        ):
+            return float(
+                snapshot.get(
+                    "odds_a"
+                )
+            )
+
+        if (
+            predicted
+            and predicted
+            == str(
+                snapshot.get(
+                    "selection_b"
+                )
+                or ""
+            )
+        ):
+            return float(
+                snapshot.get(
+                    "odds_b"
+                )
+            )
+
+        p = float(
+            prediction.get(
+                "model_probability"
+            )
+            or 0.5
+        )
+
+        return float(
+            snapshot.get(
+                "odds_a"
+            )
+            if p >= 0.5
+            else snapshot.get(
+                "odds_b"
+            )
+        )
+
+    if market == "Total Sets 3.5":
+
+        if (
+            predicted
+            .casefold()
+            .startswith("under")
+        ):
+            return float(
+                snapshot.get(
+                    "odds_b"
+                )
+            )
+
+        return float(
+            snapshot.get(
+                "odds_a"
+            )
+        )
+
+    return None
+
+
+def finalize_prediction_close(
+    prediction_id: int,
+    closing_odds: float,
+    *,
+    captured_at: str | None = None,
+) -> None:
+
+    rows = _request(
+        "GET",
+        "predictions",
+        params={
+            "select": "*",
+            "id":
+                f"eq.{int(prediction_id)}",
+            "limit": 1,
+        },
+    )
+
+    if not rows:
+        return
+
+    pred = rows[0]
+
+    close = float(
+        closing_odds
+    )
+
+    if close <= 1.0:
+        return
+
+    opening = pred.get(
+        "opening_odds"
+    )
+
+    try:
+        opening_f = (
+            float(opening)
+            if opening not in (
+                None,
+                "",
+            )
+            else None
+        )
+
+    except Exception:
+        opening_f = None
+
+    update: dict[
+        str,
+        Any,
+    ] = {
+        "latest_odds":
+            close,
+
+        "closing_odds":
+            close,
+
+        "latest_price_at":
+            captured_at
+            or datetime.now(
+                timezone.utc
+            ).isoformat(),
+    }
+
+    if (
+        opening_f
+        and opening_f > 1.0
+    ):
+
+        update[
+            "odds_change"
+        ] = (
+            close
+            / opening_f
+            - 1.0
+        )
+
+        update[
+            "clv"
+        ] = (
+            opening_f
+            / close
+            - 1.0
+        )
+
+    _request(
+        "PATCH",
+        "predictions",
+        params={
+            "id":
+                f"eq.{int(prediction_id)}"
+        },
+        payload=update,
+    )
+
+
+def last_pre_start_odds_snapshot(
+    match_id: str,
+    market: str,
+    match_date: str | None,
+) -> dict[str, Any] | None:
+
+    if not match_date:
+        return None
+
+    rows = _request(
+        "GET",
+        "odds_snapshots",
+        params={
+            "select": "*",
+
+            "match_id":
+                f"eq.{match_id}",
+
+            "market":
+                f"eq.{market}",
+
+            "captured_at":
+                f"lt.{match_date}",
+
+            "order":
+                "captured_at.desc",
+
+            "limit":
+                1,
+        },
+    )
+
+    return (
+        rows[0]
+        if rows
+        else None
+    )
+
+
+def update_bet_closing_odds(
+    bet_id: int,
+    closing_odds: float,
+) -> None:
+
+    close = float(
+        closing_odds
+    )
+
+    if close <= 1.0:
+        raise ValueError(
+            "closing_odds must be greater than 1.00"
+        )
+
+    _request(
+        "PATCH",
+        "bets",
+        params={
+            "id":
+                f"eq.{int(bet_id)}",
+
+            "profit_loss":
+                "is.null",
+        },
+        payload={
+            "closing_odds":
+                close
+        },
+    )
+
+
+def find_open_bet(
+    match_id: str,
+    market: str,
+    selection: str,
+) -> dict[str, Any] | None:
+
+    rows = _request(
+        "GET",
+        "bets",
+        params={
+            "select": "*",
+
+            "match_id":
+                f"eq.{match_id}",
+
+            "market":
+                f"eq.{market}",
+
+            "selection":
+                f"eq.{selection}",
+
+            "result":
+                "is.null",
+
+            "limit":
+                1,
+        },
+    )
+
+    return (
+        rows[0]
+        if rows
+        else None
+    )
+
+
+def place_bet(
+    *,
+    prediction_id: int | None,
+    match_id: str,
+    match_date: str | None,
+    model_version: str,
+    tournament: str | None,
+    tournament_level: Any,
+    surface: str | None,
+    round_name: str | None,
+    player_a: str,
+    player_b: str,
+    market: str,
+    selection: str,
+    model_probability: float,
+    model_fair_odds: float,
+    odds_taken: float,
+    edge: float | None,
+    expected_value: float | None,
+    bankroll_before: float | None,
+    kelly_fraction: float | None,
+    stake_amount: float,
+) -> int:
+
+    if float(
+        odds_taken
+    ) <= 1.0:
+        raise ValueError(
+            "Odds taken must be greater than 1.00"
+        )
+
+    if float(
+        stake_amount
+    ) <= 0:
+        raise ValueError(
+            "Stake must be greater than zero"
+        )
+
+    bankroll = (
+        float(bankroll_before)
+        if bankroll_before
+        not in (
+            None,
+            0,
+        )
+        else None
+    )
+
+    stake_pct = (
+        float(stake_amount)
+        / bankroll
+        if bankroll
+        else None
+    )
+
+    payload = {
+        "prediction_id":
+            prediction_id,
+
+        "match_id":
+            str(match_id),
+
+        "match_date":
+            match_date,
+
+        "model_version":
+            model_version,
+
+        "tournament":
+            tournament,
+
+        "tournament_level":
+            (
+                str(
+                    tournament_level
+                )
+                if tournament_level
+                is not None
+                else None
+            ),
+
+        "surface":
+            surface,
+
+        "round":
+            round_name or "",
+
+        "player_a":
+            player_a,
+
+        "player_b":
+            player_b,
+
+        "market":
+            market,
+
+        "selection":
+            selection,
+
+        "model_probability":
+            model_probability,
+
+        "model_fair_odds":
+            model_fair_odds,
+
+        "odds_taken":
+            odds_taken,
+
+        "closing_odds":
+            None,
+
+        "edge":
+            edge,
+
+        "expected_value":
+            expected_value,
+
+        "bankroll_before":
+            bankroll_before,
+
+        "kelly_fraction":
+            kelly_fraction,
+
+        "stake_percent":
+            stake_pct,
+
+        "stake_amount":
+            stake_amount,
+
+        "result":
+            None,
+
+        "profit_loss":
+            None,
+
+        "clv":
+            None,
+
+        "bankroll_after":
+            None,
+
+        "settled_at":
+            None,
+    }
+
+    rows = _request(
+        "POST",
+        "bets",
+        payload=payload,
+        prefer=
+            "return=representation",
+    )
+
+    if rows:
+        return int(
+            rows[0]["id"]
+        )
+
+    candidates = _request(
+        "GET",
+        "bets",
+        params={
+            "select":
+                "id",
+
+            "match_id":
+                f"eq.{match_id}",
+
+            "order":
+                "created_at.desc",
+
+            "limit":
+                1,
+        },
+    )
+
+    if not candidates:
+        raise RuntimeError(
+            "Bet was inserted but its "
+            "id could not be recovered"
+        )
+
+    return int(
+        candidates[0]["id"]
+    )
+
+
+def settle_bet(
+    bet_id: int,
+    result: str,
+    closing_odds: float | None = None,
+) -> dict[str, Any]:
+
+    rows = _request(
+        "GET",
+        "bets",
+        params={
+            "select": "*",
+            "id":
+                f"eq.{int(bet_id)}",
+            "limit": 1,
+        },
+    )
+
+    if not rows:
+        raise ValueError(
+            f"Bet #{bet_id} was not found"
+        )
+
+    bet = rows[0]
+
+    result_norm = str(
+        result
+    ).strip().lower()
+
+    if result_norm not in {
+        "win",
+        "loss",
+        "void",
+    }:
+        raise ValueError(
+            "Result must be Win, Loss or Void"
+        )
+
+    stake = float(
+        bet.get(
+            "stake_amount"
+        )
+        or 0.0
+    )
+
+    odds = float(
+        bet.get(
+            "odds_taken"
+        )
+        or 0.0
+    )
+
+    if result_norm == "win":
+
+        profit = (
+            stake
+            * (
+                odds
+                - 1.0
+            )
+        )
+
+        actual = 1.0
+
+    elif result_norm == "loss":
+
+        profit = -stake
+
+        actual = 0.0
+
+    else:
+
+        profit = 0.0
+
+        actual = None
+
+    close = (
+        float(
+            closing_odds
+        )
+        if closing_odds
+        not in (
+            None,
+            0,
+        )
+        else None
+    )
+
+    clv = (
+        odds
+        / close
+        - 1.0
+        if (
+            close
+            and close > 1.0
+            and odds > 1.0
+        )
+        else None
+    )
+
+    start = (
+        effective_starting_bankroll()
+    )
+
+    all_bets = (
+        list_bets()
+    )
+
+    realized_before = sum(
+        float(
+            x.get(
+                "profit_loss"
+            )
+            or 0.0
+        )
+
+        for x in all_bets
+
+        if (
+            int(
+                x.get("id")
+                or 0
+            )
+            != int(bet_id)
+            and x.get(
+                "profit_loss"
+            )
+            is not None
+        )
+    )
+
+    bankroll_after = (
+        float(start)
+        + realized_before
+        + profit
+        if start is not None
+        else None
+    )
+
+    update = {
+        "result":
+            result_norm.title(),
+
+        "closing_odds":
+            close,
+
+        "profit_loss":
+            profit,
+
+        "clv":
+            clv,
+
+        "bankroll_after":
+            bankroll_after,
+
+        "settled_at":
+            datetime.now(
+                timezone.utc
+            ).isoformat(),
+    }
+
+    _request(
+        "PATCH",
+        "bets",
+        params={
+            "id":
+                f"eq.{int(bet_id)}"
+        },
+        payload=update,
+    )
+
+    prediction_id = (
+        bet.get(
+            "prediction_id"
+        )
+    )
+
+    if (
+        prediction_id
+        and actual is not None
+    ):
+
+        try:
+            pred_rows = _request(
+                "GET",
+                "predictions",
+                params={
+                    "select":
+                        "selection",
+
+                    "id":
+                        f"eq.{int(prediction_id)}",
+
+                    "limit":
+                        1,
+                },
+            )
+
+            prediction_actual = (
+                actual
+            )
+
+            if pred_rows:
+
+                canonical_selection = str(
+                    pred_rows[0].get(
+                        "selection"
+                    )
+                    or ""
+                ).strip().casefold()
+
+                bet_selection = str(
+                    bet.get(
+                        "selection"
+                    )
+                    or ""
+                ).strip().casefold()
+
+                if (
+                    canonical_selection
+                    and bet_selection
+                    and canonical_selection
+                    != bet_selection
+                ):
+                    prediction_actual = (
+                        1.0
+                        - actual
+                    )
+
+            _request(
+                "PATCH",
+                "predictions",
+                params={
+                    "id":
+                        f"eq.{int(prediction_id)}"
+                },
+                payload={
+                    "actual_result":
+                        prediction_actual,
+
+                    "settled_at":
+                        update[
+                            "settled_at"
+                        ],
+                },
+            )
+
+        except Exception:
+            pass
+
+    return {
+        **bet,
+        **update,
+    }
+
+
+def delete_bet(
+    bet_id: int,
+) -> None:
+
+    _request(
+        "DELETE",
+        "bets",
+        params={
+            "id":
+                f"eq.{int(bet_id)}"
+        },
     )
