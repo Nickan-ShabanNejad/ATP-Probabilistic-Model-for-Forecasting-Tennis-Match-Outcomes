@@ -7,10 +7,10 @@
   "candidate_metrics": {
     "logistic_regression": {
       "accuracy": 0.6502192982456141,
-      "log_loss": 0.6103565428512012,
-      "brier": 0.2123074186447438,
+      "log_loss": 0.6103565428513046,
+      "brier": 0.2123074186447768,
       "roc_auc": 0.7213342168262654,
-      "ece_10bin": 0.028614132618463815
+      "ece_10bin": 0.028614132619533373
     },
     "hist_gradient_boosting": {
       "accuracy": 0.6483918128654971,
@@ -21,11 +21,11 @@
     }
   },
   "accuracy": 0.6502192982456141,
-  "log_loss": 0.6103565428512012,
-  "brier": 0.2123074186447438,
+  "log_loss": 0.6103565428513046,
+  "brier": 0.2123074186447768,
   "roc_auc": 0.7213342168262654,
-  "ece_10bin": 0.028614132618463815,
-  "latest_data_date": "2026-09-12",
+  "ece_10bin": 0.028614132619533373,
+  "latest_data_date": "2026-09-22",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -166,7 +166,7 @@
     "players": 1002,
     "rows": 56850
   },
-  "court_speed_rows": 2042,
+  "court_speed_rows": 2044,
   "court_speed_source": "Tennis Abstract external surface-speed table",
   "pipeline_version": "5.0-v03-event-level-speedfit-automated-slate",
   "sets_model": {
