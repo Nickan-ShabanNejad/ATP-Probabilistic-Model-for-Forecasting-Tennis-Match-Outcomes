@@ -66,7 +66,9 @@ def pinnacle_resource(key: str):
     return PinnOddsClient(
         api_key=key,
         base_url=os.getenv("PINNODDS_BASE_URL", "https://pinnodds.com"),
-        cache_seconds=float(os.getenv("PINNODDS_CACHE_SECONDS", "20")),
+        cache_seconds=float(os.getenv("PINNODDS_CACHE_SECONDS", "1200")),
+        stale_seconds=float(os.getenv("PINNODDS_STALE_SECONDS", "21600")),
+        single_event_cache_seconds=float(os.getenv("PINNODDS_SINGLE_EVENT_CACHE_SECONDS", "300")),
     )
 
 
@@ -150,8 +152,8 @@ with d3:
 with d4:
     include_q = st.toggle("Include qualifying", value=False)
     st.caption(
-        "Odds refresh while this page is open. The event list refreshes every ~60 seconds; "
-        "Pinnacle prices refresh more frequently close to match time."
+        "The board refreshes every 30 seconds, but Pinnacle REST prices are cached for ~20 minutes "
+        "to protect the API quota. Use Refresh slate now when you explicitly want a fresh Pinnacle pull."
     )
 
 # If the user changes the calendar day, return to the tournament chooser instead
@@ -162,6 +164,8 @@ if st.session_state.get("feed_selected_date") != selected_date.isoformat():
 
 if st.button("Refresh slate now", type="secondary"):
     upcoming_resource.clear()
+    if pinnacle_client is not None:
+        pinnacle_client.invalidate_prices()
     st.rerun()
 
 
