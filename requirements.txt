@@ -11,3 +11,4 @@ plotly==6.3.0
 pytest==8.4.1
 
 lxml==6.0.0
+openpyxl==3.1.5
