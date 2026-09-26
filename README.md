@@ -1,143 +1,83 @@
-# ATP Professional Probability & Value Model — v4 Matchstat
+[README.md](https://github.com/user-attachments/files/32691415/README.md)
+# ATP Value Board — v0.4
 
-This version rebuilds the production model around **chronological, leakage-safe player state** and uses Matchstat as the fresh-data layer while retaining the historical match archive already in the repository.
+Fair odds for every ATP 250 / 500 / Masters 1000 / ATP Finals / Grand Slam match, compared with Pinnacle, with capped fractional-Kelly stakes.
 
-## One-time GitHub setup
-
-Before running the workflow, rotate the RapidAPI key if it has ever been exposed and save the replacement only as a GitHub Actions secret:
-
-`Settings → Secrets and variables → Actions → New repository secret`
-
-Name it exactly:
-
-`MATCHSTAT_API_KEY`
-
-Do not paste the key into source code, screenshots, issues, or commits. `ATP_RANKINGS_CSV_URL` remains optional because Matchstat rankings are now the preferred ranking source.
-
-Then run:
-
-`Actions → Daily ATP production refresh → Run workflow`
-
-The daily workflow fails early if `MATCHSTAT_API_KEY` is missing, so the deployed model cannot silently fall back to stale data.
-
-## What changed in v4
-
-### 1. Matchstat fresh-data layer
-
-The updater now pulls current ATP singles rankings and current-season completed matches for the top players. It paginates Matchstat responses, deduplicates the same match returned through multiple player histories, maps Matchstat player IDs back to the historical IDs already used by the Elo system, and preserves Matchstat-only players with stable `ms:<id>` identifiers.
-
-Matchstat is preferred over TennisMyLife when both providers contain the same match because it supplies richer current match statistics. Missing advanced values remain missing; they are never converted to zero.
-
-### 2. Recent player form
-
-The trained feature vector now contains rolling and exponentially weighted information available **before each match**:
-
-- win rates over the last 3, 5, and 10 matches
-- surface-specific last-10 form
-- service-points-won over the last 1, 3, 5, and 10 matches
-- return-points-won over the last 1, 3, 5, and 10 matches
-- first-serve %, first-serve points won, and second-serve points won
-- ace and double-fault rates
-- total-point share
-- break-point save and conversion rates
-- opponent-strength-adjusted recent performance
-- recent Elo change, rest days, and match workload
-
-### 3. H2H is inside the model
-
-The old manual post-prediction H2H probability adjustment is removed. H2H is now part of the trained feature vector using only prior meetings:
-
-- sample-size-shrunk overall H2H edge
-- sample-size-shrunk surface H2H edge
-- H2H service-points-won differential
-- H2H second-serve differential
-- H2H break-point-conversion differential
-- log sample-size features
-
-`data/generated/head_to_head.csv.gz` is rebuilt every training run.
-
-### 4. Court speed is rebuilt
-
-The old compressed court-speed scale is replaced by a wider neutral-at-1.00 scale. Training uses only historical information available before the match. Prediction combines:
-
-- a historical tournament-speed prior
-- a live current-edition estimate from matches already completed at that event
-- sample-size shrinkage toward the prior when the current event has little data
-
-Court speed also interacts with player style: surface Elo, serve quality, return quality, ace rate, second-serve performance, and recent point share. The external Tennis Abstract file and the live empirical table are stored separately so one no longer overwrites the other.
-
-### 5. Tournament/context features
-
-Tournament level is now genuinely distinct:
-
-- Challenger = 1
-- ATP 250 = 2
-- ATP 500 = 3
-- Masters 1000 = 4
-- ATP Finals = 4.5
-- Grand Slam = 5
-
-The model also receives best-of-3/best-of-5, indoor context, rest/workload, and level interactions instead of treating tournament category as an almost inert display field.
-
-### 6. Optional advanced statistics
-
-When Matchstat populates them, the pipeline incorporates winners, unforced errors, net success, and first-serve speed. Coverage is explicitly tracked, so matches without those fields do not become fake zero-error or zero-winner performances.
-
-### 7. Market/odds safety
-
-The Streamlit app still accepts the current decimal prices you want to bet and reports no-vig market probability, edge, EV, fair odds, and uncapped quarter Kelly.
-
-`src/atp_model/odds.py` also contains leakage-safe helpers for historical Matchstat odds: a quote is eligible for a pre-match backtest only when its timestamp is **strictly before** the scheduled match start. If a trustworthy final pre-match quote is unavailable, the explicit opening quote can be used as a safe fallback. Live/end prices must never be treated as closing pre-match prices.
-
-## Daily pipeline
-
-`python scripts/update_data.py` now:
-
-1. refreshes/caches the historical public match archive when available;
-2. pulls Matchstat rankings and current-season player histories;
-3. deduplicates providers with Matchstat priority;
-4. writes the compressed `master_matches.csv.gz` used for training;
-5. refreshes current rankings;
-6. refreshes external court-speed data when available;
-7. trains the v4 chronological model;
-8. rebuilds H2H, empirical court speed, player state, metrics, and histories;
-9. runs automated tests before GitHub commits deployable artifacts.
-
-The workflow also commits `master_matches.csv.gz`, fixing the previous state where the deployed model and deployed master dataset could describe different training snapshots.
-
-## Generated production artifacts
-
-- `data/generated/master_matches.csv.gz`
-- `data/generated/matchstat_current_rankings.csv`
-- `data/generated/current_rankings.csv`
-- `data/generated/player_state.csv.gz`
-- `data/generated/head_to_head.csv.gz`
-- `data/generated/tournament_surface_speed_empirical.csv`
-- `data/tournament_surface_speed_external.csv`
-- `data/generated/metrics.json`
-- `data/generated/freshness.json`
-- `data/generated/source_history.csv`
-- `data/generated/model_history.csv`
-- `model/model.joblib`
-
-## Validation
-
-Training compares logistic regression with histogram gradient boosting on a chronological holdout and selects the lower log loss (Brier score tie-breaker). Reported diagnostics include accuracy, log loss, Brier score, ROC AUC, and 10-bin expected calibration error.
-
-All match features are captured before that match updates Elo, rolling statistics, H2H, or live event speed. Retirements/walkovers are excluded from the model target and state updates.
-
-The app also computes data age dynamically when it loads. If the scheduled workflow stops running, the stale-data warning continues to age instead of remaining frozen at the last successful refresh.
-
-This project estimates probabilities and betting value; it does not guarantee profitable outcomes.
-
-## v0.3.1 live-board notes
-
-For reliable Pinnacle prices, the live Streamlit app now supports a dedicated Pinnacle-only feed in addition to Matchstat. Add the following secret in Streamlit Cloud:
-
-```toml
-PINNODDS_API_KEY = "your-key"
+```
+streamlit run app.py           # needs MATCHSTAT_API_KEY (+ PINNODDS_API_KEY) in secrets
+ATP_DEMO=1 streamlit run app.py   # offline demo with SYNTHETIC prices (clearly badged)
+python scripts/train_model.py     # retrain + market benchmark (~8 min)
+pytest -q                         # 37 tests
 ```
 
-`MATCHSTAT_API_KEY` remains required for the ATP schedule and tennis data. If `PINNODDS_API_KEY` is absent, the app still tries Matchstat's odds surfaces as a fallback, but Matchstat does not expose Pinnacle for every event.
+## How good is the model? (walk-forward, 2018–2025, 18,600 matches)
 
-Court-speed tournament names are canonicalized across provider naming variants. A curated major-event baseline file lives at `data/tournament_surface_speed_external.csv`; current-event empirical conditions are still blended when available.
+Each season is predicted by a model trained only on earlier seasons, then compared with tennis-data.co.uk **Pinnacle closing odds** for the same matches.
+
+| | Log loss (lower = better) | Accuracy |
+|---|---|---|
+| Model (v0.4) | 0.6055 | 66.1% |
+| Pinnacle closing price | **0.5856** | **68.0%** |
+
+| Betting rule, replayed at Pinnacle closing prices | Bets | Share of matches | Claimed EV | **Actual ROI** |
+|---|---|---|---|---|
+| v0.3 default: model only, EV ≥ 2% & edge ≥ 2% | 13,370 | 72% | +21.8% | **−5.7% ± 1.1%** |
+| Model only, EV ≥ 5% & edge ≥ 5% | 9,103 | 49% | +27.8% | **−4.3% ± 1.3%** |
+| v0.4 default: market-anchored, EV ≥ 2% | 2 | ~0% | +3.7% | n/a (too few) |
+
+What this means: the market is more accurate than the model, and when the model disagrees with Pinnacle's closing price, Pinnacle is usually right. The model's measured weight on top of the market is **0.00** (unconstrained estimate −0.05 ± 0.04). Most of the old "value bets" were model error, not market error.
+
+The full table, a season-by-season chart and the backtest update automatically on **Model & data health** after every retrain.
+
+## How bets are decided now
+
+* **Market-anchored (default).** The fair probability is `sigmoid(a·logit(model) + b·logit(Pinnacle no-vig))`, with `a, b` fitted walk-forward on historical closing odds (`a` is never allowed below 0). Currently `a = 0`, `b = 1.056`: that's Pinnacle's price with its favourite–longshot bias removed. A bet is called only when a price beats that fair value by the minimum EV. Against Pinnacle itself this rarely happens. The intended use is **line shopping**: open a match, type your sportsbook's price into **Check your price**, and the app says whether it's value and how much to stake.
+* **Model only (experimental).** The raw model is used, as in v0.3. It's kept for research and CLV tracking and shows a warning with its backtest.
+* **Stakes.** Fractional Kelly (default ¼), **capped at 2% of bankroll per bet** (adjustable). v0.3 had no cap.
+
+## What changed in v0.4
+
+### Bugs fixed
+1. **Empty board.** The board filtered by calendar date in Toronto time. Asian events (Beijing, Tokyo, Shanghai…) are played overnight, so tomorrow's matches were hidden and today's had already started. The default is now **Next 48 hours**. When nothing shows, the board says why in plain English (started, other day, Challenger, unknown event…).
+2. **Duplicate matches.** TennisMyLife stores the tournament *start* date and Matchstat the *match* date, so the cross-provider key never matched: **668 matches in 2026 were counted twice** (Elo, form and H2H moved twice).
+3. **ITF / Challenger / qualifying rows in 2026 only** (7,454 rows). The 2000–2025 archive has none, so 2026 form and ratings were not comparable with what the model was trained on. They're removed now.
+4. **Wrong tournament levels.** Matchstat labels most events "A", so Barcelona, Rotterdam, Queen's, Dubai and others were treated as ATP 250s (1,178 rows). Levels now come from the curated archive, with overrides for recent category changes.
+5. **"US Men's Clay Court Championship – Houston" was treated as the US Open.** It got Grand Slam context and US Open court speed. Also fixed: Paris Masters being hijacked by Roland Garros, and Next Gen Finals / Davis Cup Finals being merged with the ATP Finals.
+6. **Fake long-shot value.** Probabilities were clamped to 5–95%, so a player the model rated at 2% was priced as 5% and a 30.0 price looked like +50% EV. The clamp is now 1–99%.
+7. **Slow board.** Every prediction made 16 separate gradient-boosting calls: about 25 s per match, so a 12-match slate took about 5 minutes on every 30-second refresh. Calls are batched now: **0.17 s per match (~150× faster)**.
+8. **Sponsor names didn't resolve.** "China Open", "Japan Open", "Erste Bank Open", "Rolex Paris Masters", "Nitto ATP Finals", "Open 13 Provence" and similar names now map to the right event.
+9. **Grand Slam sets model.** It's only slightly better than a coin flip (holdout log loss 0.678 vs 0.693), so it's now shrunk halfway to the market price and its stakes are capped.
+
+### Model
+* Data-quality layer (`src/atp_model/data_quality.py`) used by the updater, the trainer and the live board.
+* New ratings: experience-dependent K-factor Elo (K = 150/(n+5)^0.3), margin-of-victory weighting by game share, a Slam multiplier, and a blended overall/surface rating with a best-of-5 interaction.
+* Symmetric training (each match seen in both player orders), stronger regularisation, and model selection on a chronological holdout.
+* Walk-forward market benchmark, market blend and betting backtest, all written to `metrics.json` (`market_benchmark`, `market_blend`, `backtests`, `backtest_by_year`).
+* Current-season check: on 1,866 matches in 2026 against the market-average close, log loss went from 0.6206 (v0.3 pipeline) to 0.6169 (v0.4). Most of that comes from the data cleaning.
+
+### App
+* New dark theme, sidebar settings, KPI tiles, a **Recommended bets** card row, and matches grouped by tournament with win-probability bars, Pinnacle vs fair odds and a verdict chip.
+* **Check your price** line-shopping calculator on every match.
+* **Model & data health** opens with the honest model-vs-market scoreboard.
+* Friendly page names (`app.py` is now a small router; the board lives in `board.py`).
+* `ATP_DEMO=1` runs the whole app offline with synthetic, clearly badged prices.
+
+### Pipeline
+* `data/odds/tennis_data_atp.csv.gz`: closing odds 2010–2026 from tennis-data.co.uk. The daily job refreshes the current season on a best-effort basis, and the odds are used only for evaluation, never as features. Check tennis-data's terms before any commercial use.
+* The workflow asserts pipeline version `6.0-v04-clean-data-dynelo-market-blend` and commits the odds file.
+
+## Secrets
+
+```toml
+MATCHSTAT_API_KEY = "…"   # required: schedule, results, rankings
+PINNODDS_API_KEY  = "…"   # recommended: direct Pinnacle prices
+SUPABASE_URL = "…"        # optional: shared tracking
+SUPABASE_KEY = "…"
+```
+
+GitHub Actions also needs `MATCHSTAT_API_KEY` (and the Supabase / PinnOdds keys for the settlement job).
+
+## Honest limits
+
+* Closing prices are the hardest benchmark. Earlier prices and soft sportsbooks are beatable more often, but we have no historical data to prove that. The live proof is **closing-line value (CLV)** on the Tracking page: log every bet and check whether the price you took beats Pinnacle's close.
+* This tool estimates probabilities. It does not guarantee profit.
