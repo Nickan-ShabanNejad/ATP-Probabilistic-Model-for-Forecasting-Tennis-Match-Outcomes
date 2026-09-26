@@ -98,7 +98,7 @@ jobs:
           actual_pipeline_version = metrics.get("pipeline_version")
           print("Pipeline version found:", repr(actual_pipeline_version))
 
-          assert actual_pipeline_version == "5.0-v03-event-level-speedfit-automated-slate", (
+          assert actual_pipeline_version == "6.0-v04-clean-data-dynelo-market-blend", (
             f"Unexpected pipeline version: {actual_pipeline_version!r}"
           )
           assert metrics.get("selected_model") in {"logistic_regression", "hist_gradient_boosting"}
@@ -137,6 +137,10 @@ jobs:
             data/generated/model_history.csv \
             model/model.joblib \
             model/sets_model.joblib
+
+          if [ -f data/odds/tennis_data_atp.csv.gz ]; then
+            git add data/odds/tennis_data_atp.csv.gz
+          fi
 
           if [ -f data/tournament_surface_speed_external.csv ]; then
             git add data/tournament_surface_speed_external.csv
