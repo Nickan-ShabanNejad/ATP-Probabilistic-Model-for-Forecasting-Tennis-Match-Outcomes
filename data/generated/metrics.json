@@ -7,10 +7,10 @@
   "candidate_metrics": {
     "logistic_regression": {
       "accuracy": 0.6581352833638026,
-      "log_loss": 0.611749112918013,
-      "brier": 0.21259368690851596,
+      "log_loss": 0.6117491129179863,
+      "brier": 0.21259368690850394,
       "roc_auc": 0.7226430814381298,
-      "ece_10bin": 0.02571753660635381
+      "ece_10bin": 0.025717536606336414
     },
     "hist_gradient_boosting": {
       "accuracy": 0.6603290676416819,
@@ -25,7 +25,7 @@
   "brier": 0.21223559969723763,
   "roc_auc": 0.7235254419289149,
   "ece_10bin": 0.02209271593219695,
-  "latest_data_date": "2026-09-27",
+  "latest_data_date": "2026-09-28",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -186,15 +186,15 @@
     "players": 1002,
     "rows": 56850
   },
-  "court_speed_rows": 2060,
+  "court_speed_rows": 2061,
   "court_speed_source": "Tennis Abstract external surface-speed table",
   "data_quality": {
-    "input_rows": 80201,
+    "input_rows": 80207,
     "lower_tier_rows_removed": 0,
     "qualifying_rows_removed": 0,
     "levels_corrected": 0,
     "cross_provider_duplicates_removed": 0,
-    "output_rows": 80201
+    "output_rows": 80207
   },
   "walk_forward_years": [
     2018,
@@ -223,7 +223,7 @@
     ],
     "matches_with_odds": 18640,
     "matches_with_any_market_odds": 20723,
-    "coverage": 0.8840870307167236,
+    "coverage": 0.8838607864881003,
     "model_log_loss": 0.605250170473008,
     "pinnacle_log_loss": 0.5856001440423481,
     "gap": 0.01965002643065994,
@@ -317,7 +317,7 @@
     "available": true,
     "model_coef": 0.0,
     "market_coef": 1.0564594741466202,
-    "model_coef_unconstrained": -0.039893097022013504,
+    "model_coef_unconstrained": -0.03989309702201345,
     "model_coef_bootstrap_se": 0.037799808211684084,
     "fitted_on_years": [
       2018,
@@ -361,7 +361,7 @@
       "share_of_matches": 0.00010729613733905579,
       "win_rate": 1.0,
       "avg_odds": 1.615,
-      "avg_claimed_ev": 0.03696305689804158,
+      "avg_claimed_ev": 0.03696305689804169,
       "flat_roi": 0.615,
       "flat_roi_se": 0.30499999999999994,
       "kelly_roi": 0.5251463796330985
