@@ -6,26 +6,26 @@
   "selection_metric": "lowest chronological holdout log loss, then Brier score",
   "candidate_metrics": {
     "logistic_regression": {
-      "accuracy": 0.6581352833638026,
-      "log_loss": 0.611749112918013,
-      "brier": 0.21259368690851596,
-      "roc_auc": 0.7226430814381298,
-      "ece_10bin": 0.02571753660635381
+      "accuracy": 0.6585009140767825,
+      "log_loss": 0.6115771658854061,
+      "brier": 0.2125095724028351,
+      "roc_auc": 0.7229083243492992,
+      "ece_10bin": 0.025609291760839138
     },
     "hist_gradient_boosting": {
-      "accuracy": 0.6603290676416819,
-      "log_loss": 0.6110364740982873,
-      "brier": 0.21223559969723763,
-      "roc_auc": 0.7235254419289149,
-      "ece_10bin": 0.02209271593219695
+      "accuracy": 0.6606946983546618,
+      "log_loss": 0.6107543302300636,
+      "brier": 0.21210910381424658,
+      "roc_auc": 0.7238971028629122,
+      "ece_10bin": 0.021848204364630232
     }
   },
-  "accuracy": 0.6603290676416819,
-  "log_loss": 0.6110364740982873,
-  "brier": 0.21223559969723763,
-  "roc_auc": 0.7235254419289149,
-  "ece_10bin": 0.02209271593219695,
-  "latest_data_date": "2026-10-08",
+  "accuracy": 0.6606946983546618,
+  "log_loss": 0.6107543302300636,
+  "brier": 0.21210910381424658,
+  "roc_auc": 0.7238971028629122,
+  "ece_10bin": 0.021848204364630232,
+  "latest_data_date": "2026-10-09",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -189,12 +189,12 @@
   "court_speed_rows": 2064,
   "court_speed_source": "Tennis Abstract external surface-speed table",
   "data_quality": {
-    "input_rows": 80306,
+    "input_rows": 80321,
     "lower_tier_rows_removed": 0,
     "qualifying_rows_removed": 0,
     "levels_corrected": 0,
     "cross_provider_duplicates_removed": 0,
-    "output_rows": 80306
+    "output_rows": 80321
   },
   "walk_forward_years": [
     2018,
@@ -223,11 +223,11 @@
     ],
     "matches_with_odds": 18640,
     "matches_with_any_market_odds": 20723,
-    "coverage": 0.8803313508920986,
-    "model_log_loss": 0.605250170473008,
+    "coverage": 0.8797707493101252,
+    "model_log_loss": 0.6052483965218278,
     "pinnacle_log_loss": 0.5856001440423481,
-    "gap": 0.01965002643065994,
-    "model_accuracy": 0.6616416309012876,
+    "gap": 0.019648252479479766,
+    "model_accuracy": 0.661587982832618,
     "pinnacle_accuracy": 0.6802038626609442,
     "per_year": [
       {
@@ -297,7 +297,7 @@
         "year": 2025,
         "matches": 2398,
         "market_source": "Pinnacle close",
-        "model_log_loss": 0.6069182506786378,
+        "model_log_loss": 0.6069176462822371,
         "pinnacle_log_loss": 0.58793729006504,
         "model_accuracy": 0.6626355296080066,
         "pinnacle_accuracy": 0.6843202668890742
@@ -306,9 +306,9 @@
         "year": 2026,
         "matches": 1980,
         "market_source": "market-average close",
-        "model_log_loss": 0.6056318638074658,
+        "model_log_loss": 0.6056983061637289,
         "pinnacle_log_loss": 0.5948716215454023,
-        "model_accuracy": 0.6641414141414141,
+        "model_accuracy": 0.6631313131313131,
         "pinnacle_accuracy": 0.6843434343434344
       }
     ]
@@ -317,8 +317,8 @@
     "available": true,
     "model_coef": 0.0,
     "market_coef": 1.0564594741466202,
-    "model_coef_unconstrained": -0.039893097022013504,
-    "model_coef_bootstrap_se": 0.037799808211684084,
+    "model_coef_unconstrained": -0.03988781170182539,
+    "model_coef_bootstrap_se": 0.03782079433522944,
     "fitted_on_years": [
       2018,
       2019,
@@ -337,24 +337,24 @@
   },
   "backtests": {
     "model_only_ev2_edge2": {
-      "bets": 13378,
-      "share_of_matches": 0.7177038626609442,
-      "win_rate": 0.4446105546419495,
-      "avg_odds": 2.9434631484526834,
-      "avg_claimed_ev": 0.21719221778164977,
-      "flat_roi": -0.05752354612049634,
-      "flat_roi_se": 0.011326846767487206,
-      "kelly_roi": -0.04859142946182419
+      "bets": 13377,
+      "share_of_matches": 0.7176502145922746,
+      "win_rate": 0.4445690364057711,
+      "avg_odds": 2.943564326829633,
+      "avg_claimed_ev": 0.21718942322786064,
+      "flat_roi": -0.057659415414517454,
+      "flat_roi_se": 0.011326878550648952,
+      "kelly_roi": -0.048581704438359526
     },
     "model_only_ev5_edge5": {
-      "bets": 9098,
-      "share_of_matches": 0.4880901287553648,
-      "win_rate": 0.4529566937788525,
-      "avg_odds": 2.762473071004617,
-      "avg_claimed_ev": 0.2756269547519426,
-      "flat_roi": -0.03846779511980655,
-      "flat_roi_se": 0.013447869720039756,
-      "kelly_roi": -0.038873952136038545
+      "bets": 9096,
+      "share_of_matches": 0.4879828326180258,
+      "win_rate": 0.4529463500439754,
+      "avg_odds": 2.7625736587510996,
+      "avg_claimed_ev": 0.2756537698962566,
+      "flat_roi": -0.038446569920844324,
+      "flat_roi_se": 0.013450145961153712,
+      "kelly_roi": -0.03889574299445163
     },
     "market_blend_ev2": {
       "bets": 2,
@@ -451,21 +451,21 @@
       "share_of_matches": 0.7055879899916597,
       "win_rate": 0.4379432624113475,
       "avg_odds": 2.9818971631205677,
-      "avg_claimed_ev": 0.21132747429447893,
+      "avg_claimed_ev": 0.21130669096657906,
       "flat_roi": -0.06676713947990544,
       "flat_roi_se": 0.032937031332413796,
       "kelly_roi": -0.0544695368249136
     },
     {
       "year": 2026,
-      "bets": 1084,
-      "share_of_matches": 0.5474747474747474,
-      "win_rate": 0.4437269372693727,
-      "avg_odds": 2.7629151291512914,
-      "avg_claimed_ev": 0.18206630934092502,
-      "flat_roi": -0.037029520295202956,
-      "flat_roi_se": 0.04008250243868711,
-      "kelly_roi": -0.03376180158718586
+      "bets": 1087,
+      "share_of_matches": 0.548989898989899,
+      "win_rate": 0.44250229990800366,
+      "avg_odds": 2.77409383624655,
+      "avg_claimed_ev": 0.18146067387742454,
+      "flat_roi": -0.038932842686292546,
+      "flat_roi_se": 0.04015791140382528,
+      "kelly_roi": -0.03279616816155491
     }
   ],
   "pipeline_version": "6.0-v04-clean-data-dynelo-market-blend",
