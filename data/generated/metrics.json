@@ -7,10 +7,10 @@
   "candidate_metrics": {
     "logistic_regression": {
       "accuracy": 0.6585009140767825,
-      "log_loss": 0.6115771658854061,
-      "brier": 0.2125095724028351,
+      "log_loss": 0.6115771658853795,
+      "brier": 0.2125095724028232,
       "roc_auc": 0.7229083243492992,
-      "ece_10bin": 0.025609291760839138
+      "ece_10bin": 0.02560929176082336
     },
     "hist_gradient_boosting": {
       "accuracy": 0.6606946983546618,
@@ -25,7 +25,7 @@
   "brier": 0.21210910381424658,
   "roc_auc": 0.7238971028629122,
   "ece_10bin": 0.021848204364630232,
-  "latest_data_date": "2026-10-09",
+  "latest_data_date": "2026-10-10",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -189,12 +189,12 @@
   "court_speed_rows": 2064,
   "court_speed_source": "Tennis Abstract external surface-speed table",
   "data_quality": {
-    "input_rows": 80321,
+    "input_rows": 80338,
     "lower_tier_rows_removed": 0,
     "qualifying_rows_removed": 0,
     "levels_corrected": 0,
     "cross_provider_duplicates_removed": 0,
-    "output_rows": 80321
+    "output_rows": 80338
   },
   "walk_forward_years": [
     2018,
@@ -223,7 +223,7 @@
     ],
     "matches_with_odds": 18640,
     "matches_with_any_market_odds": 20723,
-    "coverage": 0.8797707493101252,
+    "coverage": 0.8791362633633124,
     "model_log_loss": 0.6052483965218278,
     "pinnacle_log_loss": 0.5856001440423481,
     "gap": 0.019648252479479766,
@@ -306,9 +306,9 @@
         "year": 2026,
         "matches": 1980,
         "market_source": "market-average close",
-        "model_log_loss": 0.6056983061637289,
+        "model_log_loss": 0.6056654698190581,
         "pinnacle_log_loss": 0.5948716215454023,
-        "model_accuracy": 0.6631313131313131,
+        "model_accuracy": 0.6641414141414141,
         "pinnacle_accuracy": 0.6843434343434344
       }
     ]
@@ -317,8 +317,8 @@
     "available": true,
     "model_coef": 0.0,
     "market_coef": 1.0564594741466202,
-    "model_coef_unconstrained": -0.03988781170182539,
-    "model_coef_bootstrap_se": 0.03782079433522944,
+    "model_coef_unconstrained": -0.0398878117018254,
+    "model_coef_bootstrap_se": 0.03782079433522943,
     "fitted_on_years": [
       2018,
       2019,
@@ -361,7 +361,7 @@
       "share_of_matches": 0.00010729613733905579,
       "win_rate": 1.0,
       "avg_odds": 1.615,
-      "avg_claimed_ev": 0.03696305689804158,
+      "avg_claimed_ev": 0.03696305689804169,
       "flat_roi": 0.615,
       "flat_roi_se": 0.30499999999999994,
       "kelly_roi": 0.5251463796330985
@@ -461,11 +461,11 @@
       "bets": 1087,
       "share_of_matches": 0.548989898989899,
       "win_rate": 0.44250229990800366,
-      "avg_odds": 2.77409383624655,
-      "avg_claimed_ev": 0.18146067387742454,
-      "flat_roi": -0.038932842686292546,
-      "flat_roi_se": 0.04015791140382528,
-      "kelly_roi": -0.03279616816155491
+      "avg_odds": 2.7733854645814167,
+      "avg_claimed_ev": 0.1815128673720774,
+      "flat_roi": -0.04034038638454461,
+      "flat_roi_se": 0.04011190546613246,
+      "kelly_roi": -0.03242851626124929
     }
   ],
   "pipeline_version": "6.0-v04-clean-data-dynelo-market-blend",
