@@ -7,10 +7,10 @@
   "candidate_metrics": {
     "logistic_regression": {
       "accuracy": 0.6588665447897624,
-      "log_loss": 0.611607221245885,
-      "brier": 0.21252287162987255,
+      "log_loss": 0.6116072212458818,
+      "brier": 0.2125228716298713,
       "roc_auc": 0.7228944204870201,
-      "ece_10bin": 0.025736313060393555
+      "ece_10bin": 0.025736313060390523
     },
     "hist_gradient_boosting": {
       "accuracy": 0.6610603290676417,
@@ -25,7 +25,7 @@
   "brier": 0.21201387439481545,
   "roc_auc": 0.7240473715283127,
   "ece_10bin": 0.021716468744922404,
-  "latest_data_date": "2026-10-14",
+  "latest_data_date": "2026-10-15",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -189,12 +189,12 @@
   "court_speed_rows": 2068,
   "court_speed_source": "Tennis Abstract external surface-speed table",
   "data_quality": {
-    "input_rows": 80364,
+    "input_rows": 80366,
     "lower_tier_rows_removed": 0,
     "qualifying_rows_removed": 0,
     "levels_corrected": 0,
     "cross_provider_duplicates_removed": 0,
-    "output_rows": 80364
+    "output_rows": 80366
   },
   "walk_forward_years": [
     2018,
@@ -223,7 +223,7 @@
     ],
     "matches_with_odds": 18640,
     "matches_with_any_market_odds": 20723,
-    "coverage": 0.8782048565495614,
+    "coverage": 0.878167641325536,
     "model_log_loss": 0.605422554028091,
     "pinnacle_log_loss": 0.5856001440423481,
     "gap": 0.019822409985742917,
@@ -317,8 +317,8 @@
     "available": true,
     "model_coef": 0.0,
     "market_coef": 1.0564594741466202,
-    "model_coef_unconstrained": -0.04500093043437304,
-    "model_coef_bootstrap_se": 0.037550705051082066,
+    "model_coef_unconstrained": -0.045000930434373185,
+    "model_coef_bootstrap_se": 0.03755070505108205,
     "fitted_on_years": [
       2018,
       2019,
