@@ -6,26 +6,26 @@
   "selection_metric": "lowest chronological holdout log loss, then Brier score",
   "candidate_metrics": {
     "logistic_regression": {
-      "accuracy": 0.6588665447897624,
-      "log_loss": 0.6116072212458818,
-      "brier": 0.2125228716298713,
-      "roc_auc": 0.7228944204870201,
-      "ece_10bin": 0.025736313060390523
+      "accuracy": 0.6585009140767825,
+      "log_loss": 0.6115759843564879,
+      "brier": 0.21251070695799684,
+      "roc_auc": 0.7228997681263583,
+      "ece_10bin": 0.02539064823613655
     },
     "hist_gradient_boosting": {
-      "accuracy": 0.6610603290676417,
-      "log_loss": 0.6104010880821027,
-      "brier": 0.21201387439481545,
-      "roc_auc": 0.7240473715283127,
-      "ece_10bin": 0.021716468744922404
+      "accuracy": 0.6606946983546618,
+      "log_loss": 0.6108568176783773,
+      "brier": 0.2121764635967993,
+      "roc_auc": 0.723631859951743,
+      "ece_10bin": 0.022370415816461847
     }
   },
-  "accuracy": 0.6610603290676417,
-  "log_loss": 0.6104010880821027,
-  "brier": 0.21201387439481545,
-  "roc_auc": 0.7240473715283127,
-  "ece_10bin": 0.021716468744922404,
-  "latest_data_date": "2026-10-18",
+  "accuracy": 0.6606946983546618,
+  "log_loss": 0.6108568176783773,
+  "brier": 0.2121764635967993,
+  "roc_auc": 0.723631859951743,
+  "ece_10bin": 0.022370415816461847,
+  "latest_data_date": "2026-10-19",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -186,15 +186,15 @@
     "players": 1002,
     "rows": 56850
   },
-  "court_speed_rows": 2068,
+  "court_speed_rows": 2070,
   "court_speed_source": "Tennis Abstract external surface-speed table",
   "data_quality": {
-    "input_rows": 80371,
+    "input_rows": 80382,
     "lower_tier_rows_removed": 0,
     "qualifying_rows_removed": 0,
     "levels_corrected": 0,
     "cross_provider_duplicates_removed": 0,
-    "output_rows": 80371
+    "output_rows": 80382
   },
   "walk_forward_years": [
     2018,
@@ -223,11 +223,11 @@
     ],
     "matches_with_odds": 18640,
     "matches_with_any_market_odds": 20723,
-    "coverage": 0.8779816125068847,
-    "model_log_loss": 0.605422554028091,
+    "coverage": 0.8776097912167027,
+    "model_log_loss": 0.6054493816407618,
     "pinnacle_log_loss": 0.5856001440423481,
-    "gap": 0.019822409985742917,
-    "model_accuracy": 0.6616416309012876,
+    "gap": 0.019849237598413727,
+    "model_accuracy": 0.6616952789699571,
     "pinnacle_accuracy": 0.6802038626609442,
     "per_year": [
       {
@@ -261,7 +261,7 @@
         "year": 2021,
         "matches": 2400,
         "market_source": "Pinnacle close",
-        "model_log_loss": 0.6113284973051549,
+        "model_log_loss": 0.6113579122863807,
         "pinnacle_log_loss": 0.5906443745629656,
         "model_accuracy": 0.6441666666666667,
         "pinnacle_accuracy": 0.68
@@ -270,25 +270,25 @@
         "year": 2022,
         "matches": 2526,
         "market_source": "Pinnacle close",
-        "model_log_loss": 0.5938652156076311,
+        "model_log_loss": 0.593480105894339,
         "pinnacle_log_loss": 0.5784951523698367,
-        "model_accuracy": 0.671021377672209,
+        "model_accuracy": 0.6706254948535234,
         "pinnacle_accuracy": 0.6789390340459224
       },
       {
         "year": 2023,
         "matches": 2551,
         "market_source": "Pinnacle close",
-        "model_log_loss": 0.6082110573305702,
+        "model_log_loss": 0.6082944960935864,
         "pinnacle_log_loss": 0.5847872422209159,
-        "model_accuracy": 0.6636613092904743,
+        "model_accuracy": 0.6652293218345747,
         "pinnacle_accuracy": 0.6750294002352019
       },
       {
         "year": 2024,
         "matches": 2573,
         "market_source": "Pinnacle close",
-        "model_log_loss": 0.5980586254003128,
+        "model_log_loss": 0.5980442654644228,
         "pinnacle_log_loss": 0.5788290814684767,
         "model_accuracy": 0.6688690244850369,
         "pinnacle_accuracy": 0.6890788962300817
@@ -297,18 +297,18 @@
         "year": 2025,
         "matches": 2398,
         "market_source": "Pinnacle close",
-        "model_log_loss": 0.6065639720816495,
+        "model_log_loss": 0.6069335591400709,
         "pinnacle_log_loss": 0.58793729006504,
-        "model_accuracy": 0.6626355296080066,
+        "model_accuracy": 0.6622185154295246,
         "pinnacle_accuracy": 0.6843202668890742
       },
       {
         "year": 2026,
         "matches": 1980,
         "market_source": "market-average close",
-        "model_log_loss": 0.6054908426059191,
+        "model_log_loss": 0.6054335269756068,
         "pinnacle_log_loss": 0.5948716215454023,
-        "model_accuracy": 0.6651515151515152,
+        "model_accuracy": 0.6646464646464646,
         "pinnacle_accuracy": 0.6843434343434344
       }
     ]
@@ -317,8 +317,8 @@
     "available": true,
     "model_coef": 0.0,
     "market_coef": 1.0564594741466202,
-    "model_coef_unconstrained": -0.045000930434373185,
-    "model_coef_bootstrap_se": 0.03755070505108205,
+    "model_coef_unconstrained": -0.045785308503888,
+    "model_coef_bootstrap_se": 0.03759163324972816,
     "fitted_on_years": [
       2018,
       2019,
@@ -331,30 +331,30 @@
       2026
     ],
     "fitted_matches": 18640,
-    "walk_forward_log_loss": 0.5835708785286762,
+    "walk_forward_log_loss": 0.5835730602010712,
     "pinnacle_log_loss_same_years": 0.5837821515790462,
     "interpretation": "model_coef is the weight the model's opinion deserves ON TOP of the Pinnacle price. Near zero means the model adds little information the closing market does not already have."
   },
   "backtests": {
     "model_only_ev2_edge2": {
-      "bets": 13406,
-      "share_of_matches": 0.719206008583691,
-      "win_rate": 0.4461435178278383,
-      "avg_odds": 2.948035954050425,
-      "avg_claimed_ev": 0.21716450356229458,
-      "flat_roi": -0.053743846039086975,
-      "flat_roi_se": 0.011347031104686683,
-      "kelly_roi": -0.04735634722030993
+      "bets": 13395,
+      "share_of_matches": 0.7186158798283262,
+      "win_rate": 0.4458379992534528,
+      "avg_odds": 2.956603210153042,
+      "avg_claimed_ev": 0.2173869041642237,
+      "flat_roi": -0.055331840238895105,
+      "flat_roi_se": 0.0113325573465683,
+      "kelly_roi": -0.04773510146090693
     },
     "model_only_ev5_edge5": {
-      "bets": 9050,
-      "share_of_matches": 0.4855150214592275,
-      "win_rate": 0.4517127071823204,
-      "avg_odds": 2.7775745856353593,
-      "avg_claimed_ev": 0.277549159696704,
-      "flat_roi": -0.038782320441988954,
-      "flat_roi_se": 0.013503982148188147,
-      "kelly_roi": -0.03919808933093356
+      "bets": 9049,
+      "share_of_matches": 0.48546137339055795,
+      "win_rate": 0.452315172947287,
+      "avg_odds": 2.77172947286993,
+      "avg_claimed_ev": 0.27713032992220155,
+      "flat_roi": -0.03868272737319041,
+      "flat_roi_se": 0.013487092916679709,
+      "kelly_roi": -0.038878182873876684
     },
     "market_blend_ev2": {
       "bets": 2,
@@ -403,69 +403,69 @@
     },
     {
       "year": 2021,
-      "bets": 1762,
-      "share_of_matches": 0.7341666666666666,
-      "win_rate": 0.4216799091940976,
-      "avg_odds": 3.2087060158910328,
-      "avg_claimed_ev": 0.2471262741812633,
-      "flat_roi": -0.020641316685584565,
-      "flat_roi_se": 0.033732616445607204,
-      "kelly_roi": -0.013016141322335424
+      "bets": 1764,
+      "share_of_matches": 0.735,
+      "win_rate": 0.4212018140589569,
+      "avg_odds": 3.213837868480725,
+      "avg_claimed_ev": 0.24704918338306428,
+      "flat_roi": -0.021751700680272112,
+      "flat_roi_se": 0.03370350163672891,
+      "kelly_roi": -0.013463884253374818
     },
     {
       "year": 2022,
-      "bets": 1807,
-      "share_of_matches": 0.715360253365004,
-      "win_rate": 0.4416159380188157,
-      "avg_odds": 3.015473159933591,
-      "avg_claimed_ev": 0.22276655748406715,
-      "flat_roi": -0.046508024349750966,
-      "flat_roi_se": 0.0302674600200214,
-      "kelly_roi": -0.03125735929957744
+      "bets": 1802,
+      "share_of_matches": 0.7133808392715756,
+      "win_rate": 0.4428412874583796,
+      "avg_odds": 3.0055438401775803,
+      "avg_claimed_ev": 0.22196815776360446,
+      "flat_roi": -0.04821864594894561,
+      "flat_roi_se": 0.03039204473777311,
+      "kelly_roi": -0.030740145385673535
     },
     {
       "year": 2023,
-      "bets": 1796,
-      "share_of_matches": 0.7040376323010584,
-      "win_rate": 0.43596881959910916,
-      "avg_odds": 3.00010579064588,
-      "avg_claimed_ev": 0.22038229197713022,
-      "flat_roi": -0.1069933184855234,
-      "flat_roi_se": 0.027936769748748418,
-      "kelly_roi": -0.08791848669440028
+      "bets": 1794,
+      "share_of_matches": 0.7032536260290082,
+      "win_rate": 0.43534002229654406,
+      "avg_odds": 3.0277647714604234,
+      "avg_claimed_ev": 0.22138538605845054,
+      "flat_roi": -0.1091917502787068,
+      "flat_roi_se": 0.02773821277053565,
+      "kelly_roi": -0.0879651134378427
     },
     {
       "year": 2024,
-      "bets": 1776,
-      "share_of_matches": 0.6902448503692188,
-      "win_rate": 0.44988738738738737,
-      "avg_odds": 2.9050506756756755,
-      "avg_claimed_ev": 0.20477254967859226,
-      "flat_roi": -0.06296171171171171,
-      "flat_roi_se": 0.03259917773849691,
-      "kelly_roi": -0.05275381616567645
+      "bets": 1775,
+      "share_of_matches": 0.6898561989895065,
+      "win_rate": 0.451830985915493,
+      "avg_odds": 2.947087323943662,
+      "avg_claimed_ev": 0.2059345093156934,
+      "flat_roi": -0.05669859154929578,
+      "flat_roi_se": 0.0326104258798432,
+      "kelly_roi": -0.05036735096768196
     },
     {
       "year": 2025,
-      "bets": 1701,
-      "share_of_matches": 0.7093411175979983,
-      "win_rate": 0.4497354497354497,
-      "avg_odds": 2.9765549676660785,
-      "avg_claimed_ev": 0.2093326566099081,
-      "flat_roi": -0.04549676660787772,
-      "flat_roi_se": 0.03288774542111053,
-      "kelly_roi": -0.03968988058115357
+      "bets": 1695,
+      "share_of_matches": 0.7068390325271059,
+      "win_rate": 0.44542772861356933,
+      "avg_odds": 2.9783775811209443,
+      "avg_claimed_ev": 0.20994282639846634,
+      "flat_roi": -0.05620648967551623,
+      "flat_roi_se": 0.03276881091506832,
+      "kelly_roi": -0.04473261837885352
     },
     {
       "year": 2026,
       "bets": 1088,
       "share_of_matches": 0.5494949494949495,
-      "win_rate": 0.4420955882352941,
-      "avg_odds": 2.76734375,
-      "avg_claimed_ev": 0.1799581824435836,
-      "flat_roi": -0.04640625000000001,
-      "flat_roi_se": 0.03988198572907086,
-      "kelly_roi": -0.029464129478720427
+      "win_rate": 0.44485294117647056,
+      "avg_odds": 2.763547794117647,
+      "avg_claimed_ev": 0.18020656130632995,
+      "flat_roi": -0.040992647058823536,
+      "flat_roi_se": 0.03992519919985168,
+      "kelly_roi": -0.0298403338628068
     }
   ],
   "pipeline_version": "6.0-v04-clean-data-dynelo-market-blend",
@@ -475,9 +475,9 @@
     "test_matches": 479,
     "holdout": "2025",
     "selected_model": "hist_gradient_boosting",
-    "log_loss": 0.6778518072779447,
-    "brier": 0.24217716047210638,
-    "accuracy": 0.5991649269311065,
+    "log_loss": 0.6788650143036065,
+    "brier": 0.24261298318549776,
+    "accuracy": 0.5970772442588727,
     "features": [
       "elo_closeness",
       "surface_elo_gap",
