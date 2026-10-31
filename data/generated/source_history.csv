@@ -77,3 +77,4 @@ updated_at_utc,latest_match_date,match_age_days,master_rows,current_year_rows,du
 2026-10-28T16:05:17.338276+00:00,20261028,0,80483,2693,19,78576,0,True,20261026,Matchstat ATP singles rankings,True,11146.0
 2026-10-29T16:11:54.423581+00:00,20261029,0,80493,2703,19,78576,0,True,20261026,Matchstat ATP singles rankings,True,11176.0
 2026-10-30T16:00:06.823144+00:00,20261030,0,80503,2713,19,78576,0,True,20261026,Matchstat ATP singles rankings,True,11210.0
+2026-10-31T15:23:36.947636+00:00,20261030,1,80510,2720,19,78576,0,True,20261026,Matchstat ATP singles rankings,True,11245.0
