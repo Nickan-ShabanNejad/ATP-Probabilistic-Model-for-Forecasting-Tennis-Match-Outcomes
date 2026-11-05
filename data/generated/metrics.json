@@ -25,7 +25,7 @@
   "brier": 0.21302013732613037,
   "roc_auc": 0.7211898299783859,
   "ece_10bin": 0.035604473776858145,
-  "latest_data_date": "2026-11-04",
+  "latest_data_date": "2026-11-05",
   "features": [
     "overall_elo_diff",
     "surface_elo_diff",
@@ -189,12 +189,12 @@
   "court_speed_rows": 2058,
   "court_speed_source": "Tennis Abstract external surface-speed table",
   "data_quality": {
-    "input_rows": 80549,
+    "input_rows": 80559,
     "lower_tier_rows_removed": 0,
     "qualifying_rows_removed": 0,
     "levels_corrected": 0,
     "cross_provider_duplicates_removed": 0,
-    "output_rows": 80549
+    "output_rows": 80559
   },
   "walk_forward_years": [
     2018,
@@ -223,7 +223,7 @@
     ],
     "matches_with_odds": 18640,
     "matches_with_any_market_odds": 20723,
-    "coverage": 0.8718865701783911,
+    "coverage": 0.8715198923374547,
     "model_log_loss": 0.6074196734761291,
     "pinnacle_log_loss": 0.5856001440423481,
     "gap": 0.02181952943378107,
